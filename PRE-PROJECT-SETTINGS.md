@@ -1,6 +1,6 @@
 # 🔧 PRE-PROJECT SETTINGS & DEVELOPMENT STANDARDS
 
-**Project**: CA Productivity Platform  
+**Project**: Zetra  
 **Version**: 1.0  
 **Last Updated**: August 2025  
 **Status**: **NON-NEGOTIABLE REQUIREMENTS**

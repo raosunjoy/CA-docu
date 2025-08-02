@@ -1,17 +1,17 @@
 # 🤖 CLAUDE.md - Project Context & Development Standards
 
-This document provides essential context and guidelines for Claude Code when working on the **CA Productivity Platform** project.
+This document provides essential context and guidelines for Claude Code when working on the **Zetra** project.
 
 ---
 
 ## 📋 **PROJECT OVERVIEW**
 
-**Project Name**: Unified Productivity Platform for Indian CA Firms  
+**Project Name**: Zetra - Unified Productivity Platform for Indian CA Firms  
 **Repository**: https://github.com/raosunjoy/CA-docu  
 **Status**: Pre-Development Phase  
 
 ### **Key Documents to Reference:**
-1. **`PRD-CA-Productivity-Platform.md`** - Complete Product Requirements Document
+1. **`PRD-Zetra-Platform.md`** - Complete Product Requirements Document
 2. **`PRE-PROJECT-SETTINGS.md`** - Development Standards & Quality Gates
 
 ---
@@ -326,8 +326,8 @@ npx prisma studio          # GUI for database
 
 ## 📖 **REFERENCE DOCUMENTS**
 
-- **`PRD-CA-Productivity-Platform.md`**: Complete product specifications
+- **`PRD-Zetra-Platform.md`**: Complete product specifications
 - **`PRE-PROJECT-SETTINGS.md`**: Development standards and quality gates
 - **`CLAUDE.md`** (this file): Context and workflow guidance
 
-**Remember**: These standards are NON-NEGOTIABLE. Quality is paramount for this CA productivity platform that will handle sensitive financial data and compliance requirements.
+**Remember**: These standards are NON-NEGOTIABLE. Quality is paramount for Zetra that will handle sensitive financial data and compliance requirements.
