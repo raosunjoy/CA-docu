@@ -15,10 +15,10 @@ interface CommentData {
   id: string
   content: string
   taskId: string
-  authorId: string
+  userId: string
   createdAt: Date
   updatedAt: Date
-  author: {
+  user: {
     id: string
     firstName: string
     lastName: string
@@ -39,7 +39,7 @@ async function getTaskComments(taskId: string): Promise<CommentData[]> {
   const comments = await prisma.taskComment.findMany({
     where: { taskId },
     include: {
-      author: {
+      user: {
         select: {
           id: true,
           firstName: true,
@@ -108,15 +108,15 @@ export async function GET(
   }
 }
 
-async function createTaskComment(taskId: string, content: string, authorId: string) {
+async function createTaskComment(taskId: string, content: string, userId: string) {
   return prisma.taskComment.create({
     data: {
       taskId,
       content,
-      authorId
+      userId
     },
     include: {
-      author: {
+      user: {
         select: {
           id: true,
           firstName: true,

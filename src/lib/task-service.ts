@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma'
 import { TaskFilters, TaskSortOptions, buildTaskWhereClause } from '@/lib/task-utils'
+import { TaskCreationData } from '@/types'
 
 export interface TaskData {
   id: string
@@ -46,7 +47,7 @@ export async function getTasksPaginated(
   page: number,
   limit: number
 ): Promise<{ tasks: TaskData[], pagination: PaginationInfo }> {
-  const where = buildTaskWhereClause(filters, organizationId)
+  const where = buildTaskWhereClause(organizationId, filters)
   
   const [tasks, total] = await Promise.all([
     prisma.task.findMany({
@@ -106,7 +107,7 @@ export async function validateParentTask(parentTaskId: string, organizationId: s
   })
 }
 
-export async function createTaskWithIncludes(taskData: Record<string, unknown>) {
+export async function createTaskWithIncludes(taskData: TaskCreationData) {
   return prisma.task.create({
     data: taskData,
     include: {

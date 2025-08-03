@@ -113,7 +113,7 @@ describe('Tasks API', () => {
       }
 
       expect(expectedWhere.OR).toHaveLength(2)
-      expect(expectedWhere.OR[0].title.contains).toBe('test')
+      expect(expectedWhere.OR[0]?.title?.contains).toBe('test')
     })
 
     it('should handle pagination correctly', () => {
@@ -163,19 +163,6 @@ describe('Tasks API', () => {
       mockPrisma.task.create.mockResolvedValue(mockCreatedTask)
       mockPrisma.auditLog.create.mockResolvedValue({})
 
-      const expectedTaskData = {
-        organizationId: 'org-123',
-        title: validTaskData.title,
-        description: validTaskData.description,
-        status: validTaskData.status,
-        priority: validTaskData.priority,
-        assignedTo: validTaskData.assignedTo,
-        createdBy: 'user-123',
-        parentTaskId: undefined,
-        dueDate: null,
-        estimatedHours: undefined,
-        metadata: {}
-      }
 
       expect(mockCreatedTask.title).toBe(validTaskData.title)
       expect(mockCreatedTask.organizationId).toBe('org-123')

@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { authMiddleware } from '@/lib/middleware'
-import { APIResponse, TaskStatus, TaskPriority } from '@/types'
+import { APIResponse, TaskStatus, TaskPriority, InputJsonValue } from '@/types'
 import { TaskFilters } from '@/lib/task-utils'
 import { 
   getTasksPaginated, 
@@ -23,7 +23,7 @@ const createTaskSchema = z.object({
   parentTaskId: z.string().optional(),
   dueDate: z.string().datetime().optional(),
   estimatedHours: z.number().min(0).optional(),
-  metadata: z.record(z.unknown()).default({})
+  metadata: z.record(z.string(), z.unknown()).default({})
 })
 
 // Query parameters schema
@@ -133,12 +133,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<APIRespons
   }
 }
 
-interface TaskCreationData {
-  assignedTo?: string
-  parentTaskId?: string
+
+interface TaskValidationData {
+  assignedTo?: string | null
+  parentTaskId?: string | null
 }
 
-async function validateTaskCreation(validatedData: TaskCreationData, organizationId: string) {
+async function validateTaskCreation(validatedData: TaskValidationData, organizationId: string) {
   if (validatedData.assignedTo) {
     const assignedUser = await validateTaskAssignee(validatedData.assignedTo, organizationId)
     if (!assignedUser) {
@@ -167,14 +168,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<APIRespon
     const body = await request.json()
     const validatedData = createTaskSchema.parse(body)
 
-    const validation = await validateTaskCreation(validatedData, user.orgId)
-    if (validation.error) {
-      return NextResponse.json(
-        { success: false, error: validation.error },
-        { status: 404 }
-      )
-    }
-
     const taskData = {
       organizationId: user.orgId,
       title: validatedData.title,
@@ -186,7 +179,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<APIRespon
       parentTaskId: validatedData.parentTaskId || null,
       dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
       estimatedHours: validatedData.estimatedHours || null,
-      metadata: validatedData.metadata as Record<string, unknown>
+      metadata: validatedData.metadata as InputJsonValue
+    }
+
+    const validation = await validateTaskCreation(taskData, user.orgId)
+    if (validation.error) {
+      return NextResponse.json(
+        { success: false, error: validation.error },
+        { status: 404 }
+      )
     }
 
     const task = await createTaskWithIncludes(taskData)

@@ -16,8 +16,12 @@ export type {
   ChatMessage,
   Tagging,
   AuditLog,
-  SyncStatus,
+  SyncStatus
 } from '../../generated/prisma'
+
+import type { Prisma } from '../../generated/prisma'
+export type InputJsonValue = Prisma.InputJsonValue
+export type JsonNullValueInput = Prisma.JsonNullValueInput
 
 export {
   UserRole,
@@ -98,6 +102,20 @@ export interface CreateTaskData {
   parentTaskId?: string
   estimatedHours?: number
   metadata?: Record<string, unknown>
+}
+
+export interface TaskCreationData {
+  title: string
+  description?: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  assignedTo?: string | null
+  createdBy: string
+  organizationId: string
+  parentTaskId?: string | null
+  dueDate?: Date | null
+  estimatedHours?: number | null
+  metadata?: JsonNullValueInput | InputJsonValue
 }
 
 export interface UpdateTaskData {

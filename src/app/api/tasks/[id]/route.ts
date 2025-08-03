@@ -7,6 +7,220 @@ import { authMiddleware } from '@/lib/middleware'
 import { APIResponse, TaskStatus, TaskPriority } from '@/types'
 import { isValidStatusTransition } from '@/lib/task-utils'
 
+// Reusable Prisma select configurations
+const userSelectConfig = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true
+}
+
+const userSelectWithRole = {
+  ...userSelectConfig,
+  role: true
+}
+
+const taskSelectConfig = {
+  id: true,
+  title: true,
+  status: true
+}
+
+const childTaskSelectConfig = {
+  ...taskSelectConfig,
+  priority: true,
+  assignedTo: true,
+  dueDate: true
+}
+
+// Task include configuration for detailed queries
+const getTaskIncludeConfig = () => ({
+  assignedUser: { select: userSelectWithRole },
+  createdByUser: { select: userSelectWithRole },
+  lockedByUser: { select: userSelectConfig },
+  parentTask: { select: taskSelectConfig },
+  childTasks: {
+    select: childTaskSelectConfig,
+    orderBy: { createdAt: 'asc' as const }
+  },
+  comments: {
+    include: { user: { select: userSelectConfig } },
+    orderBy: { createdAt: 'desc' as const }
+  },
+  attachments: {
+    include: { user: { select: userSelectConfig } },
+    orderBy: { createdAt: 'desc' as const }
+  }
+})
+
+// Helper function to get task with full relations
+async function getTaskWithRelations(taskId: string, organizationId: string) {
+  return prisma.task.findFirst({
+    where: { id: taskId, organizationId },
+    include: getTaskIncludeConfig()
+  })
+}
+
+// Helper function to create not found response
+function createNotFoundResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Task not found'
+      }
+    },
+    { status: 404 }
+  )
+}
+
+// Helper function to create success response
+function createSuccessResponse(data: any) {
+  return NextResponse.json({
+    success: true,
+    data,
+    meta: {
+      timestamp: new Date().toISOString(),
+      requestId: crypto.randomUUID()
+    }
+  })
+}
+
+// Helper function to check if task is locked by another user
+async function checkTaskLock(task: any, currentUserId: string) {
+  if (!task.lockedBy || task.lockedBy === currentUserId) {
+    return null
+  }
+
+  const lockUser = await prisma.user.findUnique({
+    where: { id: task.lockedBy },
+    select: { firstName: true, lastName: true }
+  })
+
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: `Task is locked by ${lockUser?.firstName} ${lockUser?.lastName}`
+      }
+    },
+    { status: 409 }
+  )
+}
+
+// Helper function to validate status transition
+function validateStatusTransition(currentStatus: any, newStatus: any) {
+  if (!newStatus || newStatus === currentStatus) {
+    return null
+  }
+
+  if (!isValidStatusTransition(currentStatus, newStatus)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Invalid status transition from ${currentStatus} to ${newStatus}`
+        }
+      },
+      { status: 400 }
+    )
+  }
+
+  return null
+}
+
+// Helper function to validate assigned user
+async function validateAssignedUser(assignedTo: string, organizationId: string) {
+  if (!assignedTo) {
+    return null
+  }
+
+  const assignedUser = await prisma.user.findFirst({
+    where: {
+      id: assignedTo,
+      organizationId,
+      isActive: true
+    }
+  })
+
+  if (!assignedUser) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Assigned user not found in organization'
+        }
+      },
+      { status: 404 }
+    )
+  }
+
+  return null
+}
+
+// Helper function to build update data from validated input
+function buildUpdateData(validatedData: any, existingTask: any) {
+  const updateData: any = {}
+  
+  if (validatedData.title !== undefined) updateData.title = validatedData.title
+  if (validatedData.description !== undefined) updateData.description = validatedData.description
+  if (validatedData.status !== undefined) {
+    updateData.status = validatedData.status
+    if (validatedData.status === TaskStatus.COMPLETED) {
+      updateData.completedAt = new Date()
+    } else if (existingTask.completedAt) {
+      updateData.completedAt = null
+    }
+  }
+  if (validatedData.priority !== undefined) updateData.priority = validatedData.priority
+  if (validatedData.assignedTo !== undefined) updateData.assignedTo = validatedData.assignedTo
+  if (validatedData.dueDate !== undefined) {
+    updateData.dueDate = validatedData.dueDate ? new Date(validatedData.dueDate) : null
+  }
+  if (validatedData.estimatedHours !== undefined) updateData.estimatedHours = validatedData.estimatedHours
+  if (validatedData.actualHours !== undefined) updateData.actualHours = validatedData.actualHours
+  if (validatedData.metadata !== undefined) updateData.metadata = validatedData.metadata
+
+  return updateData
+}
+
+// Helper function to create audit log for task update
+async function createTaskUpdateAuditLog(
+  request: NextRequest,
+  user: any,
+  taskId: string,
+  existingTask: any,
+  updatedTask: any
+) {
+  return prisma.auditLog.create({
+    data: {
+      organizationId: user.orgId,
+      userId: user.sub,
+      action: 'update',
+      resourceType: 'task',
+      resourceId: taskId,
+      oldValues: {
+        title: existingTask.title,
+        status: existingTask.status,
+        priority: existingTask.priority,
+        assignedTo: existingTask.assignedTo
+      },
+      newValues: {
+        title: updatedTask.title,
+        status: updatedTask.status,
+        priority: updatedTask.priority,
+        assignedTo: updatedTask.assignedTo
+      },
+      ipAddress: request.headers.get('x-forwarded-for') || null,
+      userAgent: request.headers.get('user-agent') || null
+    }
+  })
+}
+
 // Task update schema
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -17,7 +231,7 @@ const updateTaskSchema = z.object({
   dueDate: z.string().datetime().nullable().optional(),
   estimatedHours: z.number().min(0).nullable().optional(),
   actualHours: z.number().min(0).nullable().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.string(), z.unknown()).optional()
 })
 
 
@@ -27,7 +241,6 @@ export async function GET(
   context: { params: { id: string } }
 ): Promise<NextResponse<APIResponse<any>>> {
   try {
-    // Apply authentication middleware
     const authResult = await authMiddleware({})(request)
     if (authResult instanceof NextResponse) {
       return authResult as NextResponse<APIResponse<any>>
@@ -36,117 +249,15 @@ export async function GET(
     const { user } = authResult
     const taskId = context.params.id
 
-    // Get task with relations
-    const task = await prisma.task.findFirst({
-      where: {
-        id: taskId,
-        organizationId: user.orgId
-      },
-      include: {
-        assignedUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
-          }
-        },
-        createdByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
-          }
-        },
-        lockedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        parentTask: {
-          select: {
-            id: true,
-            title: true,
-            status: true
-          }
-        },
-        childTasks: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true,
-            assignedTo: true,
-            dueDate: true
-          },
-          orderBy: {
-            createdAt: 'asc'
-          }
-        },
-        comments: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        },
-        attachments: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
-      }
-    })
-
+    const task = await getTaskWithRelations(taskId, user.orgId)
+    
     if (!task) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: 'Task not found'
-          }
-        },
-        { status: 404 }
-      )
+      return createNotFoundResponse()
     }
 
-    return NextResponse.json({
-      success: true,
-      data: task,
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: crypto.randomUUID()
-      }
-    })
+    return createSuccessResponse(task)
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('Get task error:', error)
-
     return NextResponse.json(
       {
         success: false,

@@ -96,8 +96,8 @@ describe('User Profile Logic', () => {
   })
 
   it('should handle null lastLoginAt', () => {
-    const userWithoutLogin = { ...mockUser, lastLoginAt: null }
-    const isoString = userWithoutLogin.lastLoginAt?.toISOString() || null
+    const userWithoutLogin = { ...mockUser, lastLoginAt: null as Date | null }
+    const isoString = userWithoutLogin.lastLoginAt?.toISOString() ?? null
     
     expect(isoString).toBeNull()
   })

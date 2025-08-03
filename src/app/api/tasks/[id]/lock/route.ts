@@ -26,7 +26,7 @@ interface LockResponse {
     firstName: string
     lastName: string
     email: string
-  }
+  } | null
 }
 
 async function getTaskWithLockInfo(taskId: string, organizationId: string) {
@@ -113,7 +113,7 @@ export async function POST(
         data: {
           task: existingTask as TaskLockData,
           lockAcquired: false,
-          lockedByUser: existingTask.lockedByUser || undefined
+          lockedByUser: existingTask.lockedByUser || null
         },
         meta: {
           timestamp: new Date().toISOString(),
