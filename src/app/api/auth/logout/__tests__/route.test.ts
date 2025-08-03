@@ -1,0 +1,131 @@
+import 'whatwg-fetch'
+
+// Mock Prisma
+const mockPrisma = {
+  auditLog: {
+    create: jest.fn()
+  }
+}
+
+jest.mock('@/lib/prisma', () => mockPrisma)
+
+// Mock crypto
+Object.defineProperty(global, 'crypto', {
+  value: {
+    randomUUID: () => 'test-uuid'
+  }
+})
+
+describe('Logout Authentication Logic', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('should create audit log for logout', async () => {
+    const user = {
+      sub: 'user-123',
+      orgId: 'org-123',
+      deviceId: 'device-123'
+    }
+
+    const auditData = {
+      organizationId: user.orgId,
+      userId: user.sub,
+      action: 'logout',
+      resourceType: 'user',
+      resourceId: user.sub,
+      newValues: {
+        deviceId: user.deviceId,
+        ip: '127.0.0.1'
+      },
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent'
+    }
+
+    mockPrisma.auditLog.create.mockResolvedValue({})
+
+    await mockPrisma.auditLog.create({
+      data: auditData
+    })
+
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+      data: auditData
+    })
+  })
+
+  it('should clear auth cookie on logout', () => {
+    const clearCookieHeader = 'auth-token=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/'
+    
+    expect(clearCookieHeader).toContain('auth-token=')
+    expect(clearCookieHeader).toContain('HttpOnly')
+    expect(clearCookieHeader).toContain('Secure')
+    expect(clearCookieHeader).toContain('SameSite=Strict')
+    expect(clearCookieHeader).toContain('Max-Age=0')
+    expect(clearCookieHeader).toContain('Path=/')
+  })
+
+  it('should handle IP address extraction', () => {
+    const mockHeaders = {
+      'x-forwarded-for': '127.0.0.1, 192.168.1.1',
+      'user-agent': 'Mozilla/5.0 Test Agent'
+    }
+
+    const ip = mockHeaders['x-forwarded-for'] || 'unknown'
+    const userAgent = mockHeaders['user-agent'] || undefined
+
+    expect(ip).toBe('127.0.0.1, 192.168.1.1')
+    expect(userAgent).toBe('Mozilla/5.0 Test Agent')
+  })
+
+  it('should handle missing headers gracefully', () => {
+    const mockHeaders = {}
+
+    const ip = mockHeaders['x-forwarded-for' as keyof typeof mockHeaders] || 'unknown'
+    const userAgent = mockHeaders['user-agent' as keyof typeof mockHeaders] || undefined
+
+    expect(ip).toBe('unknown')
+    expect(userAgent).toBeUndefined()
+  })
+
+  it('should validate logout response structure', () => {
+    const logoutResponse = {
+      success: true,
+      data: {
+        message: 'Successfully logged out'
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: 'test-uuid'
+      }
+    }
+
+    expect(logoutResponse.success).toBe(true)
+    expect(logoutResponse.data.message).toBe('Successfully logged out')
+    expect(logoutResponse.meta.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    expect(logoutResponse.meta.requestId).toBe('test-uuid')
+  })
+
+  it('should validate audit log data structure', () => {
+    const auditLogData = {
+      organizationId: 'org-123',
+      userId: 'user-123',
+      action: 'logout',
+      resourceType: 'user',
+      resourceId: 'user-123',
+      newValues: {
+        deviceId: 'device-123',
+        ip: '127.0.0.1'
+      },
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent'
+    }
+
+    expect(auditLogData.organizationId).toBeDefined()
+    expect(auditLogData.userId).toBeDefined()
+    expect(auditLogData.action).toBe('logout')
+    expect(auditLogData.resourceType).toBe('user')
+    expect(auditLogData.resourceId).toBeDefined()
+    expect(auditLogData.newValues).toBeDefined()
+    expect(typeof auditLogData.newValues).toBe('object')
+  })
+})

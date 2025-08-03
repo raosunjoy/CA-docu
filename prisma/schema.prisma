@@ -1,0 +1,397 @@
+// Zetra Platform - Database Schema
+// Unified Productivity Platform for Indian CA Firms
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Role Enum
+enum UserRole {
+  PARTNER
+  MANAGER
+  ASSOCIATE
+  INTERN
+  ADMIN
+}
+
+// Task Status Enum
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+// Task Priority Enum
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// Channel Type Enum
+enum ChannelType {
+  DIRECT
+  GROUP
+  TASK
+  CLIENT
+}
+
+// Message Type Enum
+enum MessageType {
+  TEXT
+  FILE
+  TASK_REFERENCE
+  EMAIL_REFERENCE
+}
+
+// Core Organization Model
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  subdomain String   @unique
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users      User[]
+  tags       Tag[]
+  tasks      Task[]
+  documents  Document[]
+  emails     Email[]
+  chatChannels ChatChannel[]
+  auditLogs  AuditLog[]
+
+  @@map("organizations")
+}
+
+// User Management
+model User {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String    @unique
+  passwordHash   String?
+  firstName      String
+  lastName       String
+  role           UserRole
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Created content
+  createdTasks      Task[]         @relation("TaskCreator")
+  assignedTasks     Task[]         @relation("TaskAssignee")
+  lockedTasks       Task[]         @relation("TaskLocker")
+  uploadedDocuments Document[]     @relation("DocumentUploader")
+  createdTags       Tag[]          @relation("TagCreator")
+  emails            Email[]        @relation("EmailOwner")
+  sentMessages      ChatMessage[]  @relation("MessageSender")
+  createdChannels   ChatChannel[]  @relation("ChannelCreator")
+  taggedBy          Tagging[]      @relation("TaggerUser")
+  auditLogs         AuditLog[]     @relation("AuditUser")
+  syncStatus        SyncStatus[]
+  taskComments      TaskComment[]
+  taskAttachments   TaskAttachment[]
+  channelMemberships ChatChannelMember[]
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// Hierarchical Tag System
+model Tag {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  parentId       String?
+  color          String?   // Hex color code
+  description    String?
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User?        @relation("TagCreator", fields: [createdBy], references: [id])
+  parent       Tag?         @relation("TagHierarchy", fields: [parentId], references: [id])
+  children     Tag[]        @relation("TagHierarchy")
+  taggings     Tagging[]
+
+  @@unique([organizationId, name, parentId])
+  @@index([organizationId])
+  @@index([parentId])
+  @@map("tags")
+}
+
+// Task Management
+model Task {
+  id             String        @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  status         TaskStatus    @default(TODO)
+  priority       TaskPriority  @default(MEDIUM)
+  assignedTo     String?
+  createdBy      String
+  parentTaskId   String?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  lockedAt       DateTime?
+  lockedBy       String?
+  estimatedHours Int?
+  actualHours    Int?
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser   User?        @relation("TaskAssignee", fields: [assignedTo], references: [id])
+  createdByUser  User         @relation("TaskCreator", fields: [createdBy], references: [id])
+  lockedByUser   User?        @relation("TaskLocker", fields: [lockedBy], references: [id])
+  parentTask     Task?        @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  childTasks     Task[]       @relation("TaskHierarchy")
+  comments       TaskComment[]
+  attachments    TaskAttachment[]
+
+  @@index([organizationId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueDate])
+  @@index([createdBy])
+  @@index([parentTaskId])
+  @@map("tasks")
+}
+
+// Task Comments
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+// Task Attachments
+model TaskAttachment {
+  id       String @id @default(cuid())
+  taskId   String
+  fileName String
+  filePath String
+  fileSize Int
+  mimeType String
+  uploadedBy String
+  createdAt DateTime @default(now())
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [uploadedBy], references: [id])
+
+  @@index([taskId])
+  @@map("task_attachments")
+}
+
+// Document Management
+model Document {
+  id               String    @id @default(cuid())
+  organizationId   String
+  name             String
+  filePath         String
+  fileSize         Int
+  mimeType         String
+  version          Int       @default(1)
+  parentDocumentId String?
+  uploadedBy       String
+  folderPath       String?
+  metadata         Json      @default("{}")
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploader         User         @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+  parentDocument   Document?    @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  childDocuments   Document[]   @relation("DocumentVersions")
+
+  @@index([organizationId])
+  @@index([uploadedBy])
+  @@index([folderPath])
+  @@index([createdAt])
+  @@map("documents")
+}
+
+// Email Integration
+model Email {
+  id           String   @id @default(cuid())
+  organizationId String
+  externalId   String   @unique
+  threadId     String?
+  subject      String?
+  fromAddress  String
+  toAddresses  String[]
+  ccAddresses  String[]
+  bccAddresses String[]
+  bodyText     String?
+  bodyHtml     String?
+  receivedAt   DateTime
+  syncedAt     DateTime @default(now())
+  userId       String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation("EmailOwner", fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([receivedAt])
+  @@index([externalId])
+  @@map("emails")
+}
+
+// Chat System
+model ChatChannel {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  type           ChannelType
+  metadata       Json        @default("{}")
+  createdBy      String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation("ChannelCreator", fields: [createdBy], references: [id])
+  messages     ChatMessage[]
+  members      ChatChannelMember[]
+
+  @@index([organizationId])
+  @@map("chat_channels")
+}
+
+model ChatChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@unique([channelId, userId])
+  @@map("chat_channel_members")
+}
+
+model ChatMessage {
+  id          String      @id @default(cuid())
+  channelId   String
+  userId      String
+  content     String
+  messageType MessageType @default(TEXT)
+  metadata    Json        @default("{}")
+  repliedToId String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  channel   ChatChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User         @relation("MessageSender", fields: [userId], references: [id])
+  repliedTo ChatMessage? @relation("MessageReplies", fields: [repliedToId], references: [id])
+  replies   ChatMessage[] @relation("MessageReplies")
+
+  @@index([channelId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// Polymorphic Tagging System
+model Tagging {
+  id           String @id @default(cuid())
+  tagId        String
+  taggableType String // 'task', 'document', 'email', 'chat_channel'
+  taggableId   String
+  taggedBy     String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  tag    Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagger User? @relation("TaggerUser", fields: [taggedBy], references: [id])
+
+  // Note: Polymorphic relations are handled in application code
+  // taggableType and taggableId reference different models based on type
+
+  @@unique([tagId, taggableType, taggableId])
+  @@index([tagId])
+  @@index([taggableType, taggableId])
+  @@map("taggings")
+}
+
+// Audit Trail
+model AuditLog {
+  id           String   @id @default(cuid())
+  organizationId String
+  userId       String?
+  action       String   // 'create', 'update', 'delete', 'view'
+  resourceType String   // 'task', 'document', etc.
+  resourceId   String
+  oldValues    Json?
+  newValues    Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation("AuditUser", fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Sync Status Tracking
+model SyncStatus {
+  id             String   @id @default(cuid())
+  userId         String
+  deviceId       String
+  lastSyncAt     DateTime @default(now())
+  syncVersion    Int      @default(1)
+  pendingChanges Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@map("sync_status")
+}
