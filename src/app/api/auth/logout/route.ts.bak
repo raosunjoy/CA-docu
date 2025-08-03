@@ -8,10 +8,10 @@ import { APIResponse } from '@/types'
 export async function POST(request: NextRequest): Promise<NextResponse<APIResponse<{ message: string }>>> {
   try {
     // Apply authentication middleware
-    const authResult = await authMiddleware({})(request)
+    const authResult = await authMiddleware()(request)
     
     if (authResult instanceof NextResponse) {
-      return authResult as NextResponse<APIResponse<{ message: string }>> // Return error response from middleware
+      return authResult // Return error response from middleware
     }
 
     const { user } = authResult

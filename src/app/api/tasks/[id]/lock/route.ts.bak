@@ -1,0 +1,260 @@
+// Task Locking API endpoints
+
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { authMiddleware } from '@/lib/middleware'
+import { APIResponse } from '@/types'
+
+interface RouteParams {
+  params: { id: string }
+}
+
+// POST /api/tasks/[id]/lock - Lock task for editing
+export async function POST(
+  request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse<APIResponse<any>>> {
+  try {
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user } = authResult
+    const taskId = params.id
+
+    // Get existing task
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        organizationId: user.orgId
+      },
+      include: {
+        lockedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    if (!existingTask) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Task not found'
+          }
+        },
+        { status: 404 }
+      )
+    }
+
+    // Check if task is already locked by another user
+    if (existingTask.lockedBy && existingTask.lockedBy !== user.sub) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CONFLICT',
+            message: `Task is already locked by ${existingTask.lockedByUser?.firstName} ${existingTask.lockedByUser?.lastName}`,
+            details: {
+              lockedBy: existingTask.lockedByUser,
+              lockedAt: existingTask.lockedAt
+            }
+          }
+        },
+        { status: 409 }
+      )
+    }
+
+    // Lock the task
+    const updatedTask = await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        lockedBy: user.sub,
+        lockedAt: new Date()
+      },
+      include: {
+        lockedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    // Log task lock for audit
+    await prisma.auditLog.create({
+      data: {
+        organizationId: user.orgId,
+        userId: user.sub,
+        action: 'lock',
+        resourceType: 'task',
+        resourceId: taskId,
+        newValues: {
+          lockedBy: user.sub,
+          lockedAt: updatedTask.lockedAt
+        },
+        ipAddress: request.headers.get('x-forwarded-for') || null,
+        userAgent: request.headers.get('user-agent') || null
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: updatedTask.id,
+        lockedBy: updatedTask.lockedByUser,
+        lockedAt: updatedTask.lockedAt,
+        message: 'Task locked successfully'
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    })
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Lock task error:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred while locking task'
+        }
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE /api/tasks/[id]/lock - Unlock task
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse<APIResponse<{ message: string }>>> {
+  try {
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user } = authResult
+    const taskId = params.id
+
+    // Get existing task
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        organizationId: user.orgId
+      },
+      include: {
+        lockedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    if (!existingTask) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Task not found'
+          }
+        },
+        { status: 404 }
+      )
+    }
+
+    // Check if task is locked by current user or user has permissions to force unlock
+    if (existingTask.lockedBy && existingTask.lockedBy !== user.sub) {
+      // Only managers and partners can force unlock
+      if (!['MANAGER', 'PARTNER', 'ADMIN'].includes(user.role)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: `Task is locked by ${existingTask.lockedByUser?.firstName} ${existingTask.lockedByUser?.lastName}. You do not have permission to force unlock.`
+            }
+          },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Unlock the task
+    await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        lockedBy: null,
+        lockedAt: null
+      }
+    })
+
+    // Log task unlock for audit
+    await prisma.auditLog.create({
+      data: {
+        organizationId: user.orgId,
+        userId: user.sub,
+        action: 'unlock',
+        resourceType: 'task',
+        resourceId: taskId,
+        oldValues: {
+          lockedBy: existingTask.lockedBy,
+          lockedAt: existingTask.lockedAt
+        },
+        newValues: {
+          lockedBy: null,
+          lockedAt: null
+        },
+        ipAddress: request.headers.get('x-forwarded-for') || null,
+        userAgent: request.headers.get('user-agent') || null
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'Task unlocked successfully'
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    })
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Unlock task error:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred while unlocking task'
+        }
+      },
+      { status: 500 }
+    )
+  }
+}

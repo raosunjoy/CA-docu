@@ -29,12 +29,12 @@ export function AuthPage({ initialMode = 'login', onSuccess }: AuthPageProps) {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         {mode === 'login' ? (
           <LoginForm
-            onSuccess={onSuccess}
+            {...(onSuccess && { onSuccess })}
             onSwitchToRegister={handleSwitchToRegister}
           />
         ) : (
           <RegisterForm
-            onSuccess={onSuccess}
+            {...(onSuccess && { onSuccess })}
             onSwitchToLogin={handleSwitchToLogin}
           />
         )}

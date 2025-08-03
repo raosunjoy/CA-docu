@@ -1,0 +1,350 @@
+// Tasks API endpoints - List and Create
+
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import prisma from '@/lib/prisma'
+import { authMiddleware } from '@/lib/middleware'
+import { APIResponse, TaskStatus, TaskPriority } from '@/types'
+import { 
+  TaskFilters, 
+  TaskSortOptions, 
+  buildTaskWhereClause, 
+  buildTaskOrderByClause 
+} from '@/lib/task-utils'
+
+// Task creation schema
+const createTaskSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200),
+  description: z.string().optional(),
+  status: z.nativeEnum(TaskStatus).default(TaskStatus.TODO),
+  priority: z.nativeEnum(TaskPriority).default(TaskPriority.MEDIUM),
+  assignedTo: z.string().optional(),
+  parentTaskId: z.string().optional(),
+  dueDate: z.string().datetime().optional(),
+  estimatedHours: z.number().min(0).optional(),
+  metadata: z.record(z.any()).default({})
+})
+
+// Query parameters schema
+const querySchema = z.object({
+  page: z.string().transform(val => parseInt(val) || 1),
+  limit: z.string().transform(val => Math.min(parseInt(val) || 20, 100)),
+  status: z.string().optional(),
+  priority: z.string().optional(),
+  assignedTo: z.string().optional(),
+  createdBy: z.string().optional(),
+  parentTaskId: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.enum(['createdAt', 'updatedAt', 'dueDate', 'priority', 'title']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc')
+})
+
+interface TaskListResponse {
+  tasks: any[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+// GET /api/tasks - List tasks with filtering and pagination
+export async function GET(request: NextRequest): Promise<NextResponse<APIResponse<TaskListResponse>>> {
+  try {
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user } = authResult
+    const { searchParams } = new URL(request.url)
+
+    // Parse and validate query parameters
+    const queryParams = Object.fromEntries(searchParams.entries())
+    const validatedQuery = querySchema.parse(queryParams)
+
+    // Build filters
+    const filters: TaskFilters = {
+      search: validatedQuery.search,
+      assignedTo: validatedQuery.assignedTo,
+      createdBy: validatedQuery.createdBy,
+      parentTaskId: validatedQuery.parentTaskId
+    }
+
+    if (validatedQuery.status) {
+      filters.status = validatedQuery.status as TaskStatus
+    }
+
+    if (validatedQuery.priority) {
+      filters.priority = validatedQuery.priority as TaskPriority
+    }
+
+    // Build sort options
+    const sortOptions: TaskSortOptions = {
+      field: validatedQuery.sortBy,
+      direction: validatedQuery.sortOrder
+    }
+
+    // Build where clause and order by
+    const where = buildTaskWhereClause(user.orgId, filters)
+    const orderBy = buildTaskOrderByClause(sortOptions)
+
+    // Calculate pagination
+    const skip = (validatedQuery.page - 1) * validatedQuery.limit
+
+    // Get total count and tasks
+    const [total, tasks] = await Promise.all([
+      prisma.task.count({ where }),
+      prisma.task.findMany({
+        where,
+        orderBy,
+        skip,
+        take: validatedQuery.limit,
+        include: {
+          assignedUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
+          createdByUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
+          parentTask: {
+            select: {
+              id: true,
+              title: true
+            }
+          },
+          _count: {
+            select: {
+              childTasks: true,
+              comments: true,
+              attachments: true
+            }
+          }
+        }
+      })
+    ])
+
+    const totalPages = Math.ceil(total / validatedQuery.limit)
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        tasks,
+        pagination: {
+          page: validatedQuery.page,
+          limit: validatedQuery.limit,
+          total,
+          totalPages
+        }
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid request parameters',
+            details: error.errors
+          }
+        },
+        { status: 400 }
+      )
+    }
+
+    // eslint-disable-next-line no-console
+    console.error('Get tasks error:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred while fetching tasks'
+        }
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// POST /api/tasks - Create new task
+export async function POST(request: NextRequest): Promise<NextResponse<APIResponse<any>>> {
+  try {
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user } = authResult
+    
+    // Parse and validate request body
+    const body = await request.json()
+    const validatedData = createTaskSchema.parse(body)
+
+    // Check if assignedTo user exists and belongs to same organization
+    if (validatedData.assignedTo) {
+      const assignedUser = await prisma.user.findFirst({
+        where: {
+          id: validatedData.assignedTo,
+          organizationId: user.orgId,
+          isActive: true
+        }
+      })
+
+      if (!assignedUser) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Assigned user not found in organization'
+            }
+          },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Check if parent task exists and belongs to same organization
+    if (validatedData.parentTaskId) {
+      const parentTask = await prisma.task.findFirst({
+        where: {
+          id: validatedData.parentTaskId,
+          organizationId: user.orgId
+        }
+      })
+
+      if (!parentTask) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Parent task not found'
+            }
+          },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        organizationId: user.orgId,
+        title: validatedData.title,
+        description: validatedData.description,
+        status: validatedData.status,
+        priority: validatedData.priority,
+        assignedTo: validatedData.assignedTo,
+        createdBy: user.sub,
+        parentTaskId: validatedData.parentTaskId,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+        estimatedHours: validatedData.estimatedHours,
+        metadata: validatedData.metadata
+      },
+      include: {
+        assignedUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        parentTask: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      }
+    })
+
+    // Log task creation for audit
+    await prisma.auditLog.create({
+      data: {
+        organizationId: user.orgId,
+        userId: user.sub,
+        action: 'create',
+        resourceType: 'task',
+        resourceId: task.id,
+        newValues: {
+          title: task.title,
+          status: task.status,
+          priority: task.priority,
+          assignedTo: task.assignedTo
+        },
+        ipAddress: request.headers.get('x-forwarded-for') || null,
+        userAgent: request.headers.get('user-agent') || null
+      }
+    })
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: task,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID()
+        }
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid request data',
+            details: error.errors
+          }
+        },
+        { status: 400 }
+      )
+    }
+
+    // eslint-disable-next-line no-console
+    console.error('Create task error:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred while creating task'
+        }
+      },
+      { status: 500 }
+    )
+  }
+}

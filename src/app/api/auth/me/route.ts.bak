@@ -21,60 +21,30 @@ interface MeResponse {
   permissions: string[]
 }
 
-async function getUserDetails(userId: string) {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          subdomain: true
-        }
-      }
-    }
-  })
-}
-
-interface UserDetailsData {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  role: string
-  isActive: boolean
-  lastLoginAt: Date | null
-  organization: {
-    id: string
-    name: string
-    subdomain: string
-  }
-}
-
-function createUserResponse(userDetails: UserDetailsData, permissions: string[]): MeResponse {
-  return {
-    id: userDetails.id,
-    email: userDetails.email,
-    firstName: userDetails.firstName,
-    lastName: userDetails.lastName,
-    role: userDetails.role,
-    isActive: userDetails.isActive,
-    lastLoginAt: userDetails.lastLoginAt?.toISOString() || null,
-    organization: userDetails.organization,
-    permissions
-  }
-}
-
 export async function GET(request: NextRequest): Promise<NextResponse<APIResponse<MeResponse>>> {
   try {
-    const authResult = await authMiddleware({})(request)
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
     
     if (authResult instanceof NextResponse) {
-      return authResult as NextResponse<APIResponse<MeResponse>>
+      return authResult // Return error response from middleware
     }
 
     const { user } = authResult
-    const userDetails = await getUserDetails(user.sub)
+
+    // Get user details from database
+    const userDetails = await prisma.user.findUnique({
+      where: { id: user.sub },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            subdomain: true
+          }
+        }
+      }
+    })
 
     if (!userDetails) {
       return NextResponse.json(
@@ -102,12 +72,20 @@ export async function GET(request: NextRequest): Promise<NextResponse<APIRespons
       )
     }
 
-    const responseData = createUserResponse(userDetails, user.permissions)
-
     return NextResponse.json(
       {
         success: true,
-        data: responseData,
+        data: {
+          id: userDetails.id,
+          email: userDetails.email,
+          firstName: userDetails.firstName,
+          lastName: userDetails.lastName,
+          role: userDetails.role,
+          isActive: userDetails.isActive,
+          lastLoginAt: userDetails.lastLoginAt?.toISOString() || null,
+          organization: userDetails.organization,
+          permissions: user.permissions
+        },
         meta: {
           timestamp: new Date().toISOString(),
           requestId: crypto.randomUUID()

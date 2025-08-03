@@ -1,0 +1,215 @@
+// Task Comments API endpoints
+
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import prisma from '@/lib/prisma'
+import { authMiddleware } from '@/lib/middleware'
+import { APIResponse } from '@/types'
+
+// Comment creation schema
+const createCommentSchema = z.object({
+  content: z.string().min(1, 'Comment content is required').max(2000)
+})
+
+interface RouteParams {
+  params: { id: string }
+}
+
+// GET /api/tasks/[id]/comments - Get task comments
+export async function GET(
+  request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse<APIResponse<any[]>>> {
+  try {
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user } = authResult
+    const taskId = params.id
+
+    // Verify task exists and user has access
+    const task = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        organizationId: user.orgId
+      }
+    })
+
+    if (!task) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Task not found'
+          }
+        },
+        { status: 404 }
+      )
+    }
+
+    // Get comments
+    const comments = await prisma.taskComment.findMany({
+      where: { taskId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: comments,
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    })
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Get task comments error:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred while fetching comments'
+        }
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// POST /api/tasks/[id]/comments - Add comment to task
+export async function POST(
+  request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse<APIResponse<any>>> {
+  try {
+    // Apply authentication middleware
+    const authResult = await authMiddleware()(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const { user } = authResult
+    const taskId = params.id
+
+    // Parse and validate request body
+    const body = await request.json()
+    const validatedData = createCommentSchema.parse(body)
+
+    // Verify task exists and user has access
+    const task = await prisma.task.findFirst({
+      where: {
+        id: taskId,
+        organizationId: user.orgId
+      }
+    })
+
+    if (!task) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Task not found'
+          }
+        },
+        { status: 404 }
+      )
+    }
+
+    // Create comment
+    const comment = await prisma.taskComment.create({
+      data: {
+        taskId,
+        userId: user.sub,
+        content: validatedData.content
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    })
+
+    // Log comment creation for audit
+    await prisma.auditLog.create({
+      data: {
+        organizationId: user.orgId,
+        userId: user.sub,
+        action: 'create',
+        resourceType: 'task_comment',
+        resourceId: comment.id,
+        newValues: {
+          taskId,
+          content: validatedData.content
+        },
+        ipAddress: request.headers.get('x-forwarded-for') || null,
+        userAgent: request.headers.get('user-agent') || null
+      }
+    })
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: comment,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID()
+        }
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid request data',
+            details: error.errors
+          }
+        },
+        { status: 400 }
+      )
+    }
+
+    // eslint-disable-next-line no-console
+    console.error('Create task comment error:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred while creating comment'
+        }
+      },
+      { status: 500 }
+    )
+  }
+}
