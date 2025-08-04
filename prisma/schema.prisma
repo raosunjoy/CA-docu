@@ -67,6 +67,7 @@ model Organization {
   tags       Tag[]
   tasks      Task[]
   documents  Document[]
+  documentFolders DocumentFolder[]
   emails     Email[]
   chatChannels ChatChannel[]
   auditLogs  AuditLog[]
@@ -106,6 +107,14 @@ model User {
   taskComments      TaskComment[]
   taskAttachments   TaskAttachment[]
   channelMemberships ChatChannelMember[]
+  
+  // Document Management relations
+  createdFolders    DocumentFolder[]    @relation("FolderCreator")
+  documentAnnotations DocumentAnnotation[] @relation("DocumentAnnotator")
+  sharedDocuments   DocumentShare[]     @relation("DocumentSharer")
+  receivedShares    DocumentShare[]     @relation("DocumentRecipient")
+  documentComments  DocumentComment[]   @relation("DocumentCommenter")
+  folderPermissions FolderPermission[]  @relation("FolderPermissionUser")
 
   @@index([organizationId])
   @@index([email])
@@ -197,49 +206,74 @@ model TaskComment {
 
 // Task Attachments
 model TaskAttachment {
-  id       String @id @default(cuid())
-  taskId   String
-  fileName String
-  filePath String
-  fileSize Int
-  mimeType String
+  id         String  @id @default(cuid())
+  taskId     String
+  documentId String?
+  fileName   String
+  filePath   String
+  fileSize   Int
+  mimeType   String
   uploadedBy String
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   // Relations
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [uploadedBy], references: [id])
+  task     Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [uploadedBy], references: [id])
+  document Document? @relation(fields: [documentId], references: [id])
 
   @@index([taskId])
+  @@index([documentId])
   @@map("task_attachments")
 }
 
 // Document Management
 model Document {
-  id               String    @id @default(cuid())
+  id               String         @id @default(cuid())
   organizationId   String
   name             String
-  filePath         String
+  originalName     String?        // Original filename
+  description      String?
+  filePath         String         // Current file path
+  localPath        String?        // Local sync path
+  cloudPath        String?        // Cloud storage path
+  thumbnailPath    String?        // Preview/thumbnail path
   fileSize         Int
   mimeType         String
-  version          Int       @default(1)
+  checksum         String?        // For integrity and deduplication
+  type             DocumentType   @default(OTHER)
+  status           DocumentStatus @default(ACTIVE)
+  version          Int            @default(1)
   parentDocumentId String?
+  folderId         String?        // Reference to DocumentFolder
   uploadedBy       String
-  folderPath       String?
-  metadata         Json      @default("{}")
-  isDeleted        Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  uploadedAt       DateTime       @default(now())
+  lastAccessedAt   DateTime?
+  extractedText    String?        // OCR/searchable text
+  metadata         Json           @default("{}")
+  isDeleted        Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   // Relations
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  uploader         User         @relation("DocumentUploader", fields: [uploadedBy], references: [id])
-  parentDocument   Document?    @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
-  childDocuments   Document[]   @relation("DocumentVersions")
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploader         User                @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+  folder           DocumentFolder?     @relation(fields: [folderId], references: [id])
+  parentDocument   Document?           @relation("DocumentVersions", fields: [parentDocumentId], references: [id])
+  childDocuments   Document[]          @relation("DocumentVersions")
+  
+  // Enhanced relations for document management
+  annotations      DocumentAnnotation[]
+  shares           DocumentShare[]
+  comments         DocumentComment[]
+  taskAttachments  TaskAttachment[]
+  // Note: Taggings are handled via polymorphic relations in application code
 
   @@index([organizationId])
   @@index([uploadedBy])
-  @@index([folderPath])
+  @@index([folderId])
+  @@index([status])
+  @@index([type])
+  @@index([checksum])
   @@index([createdAt])
   @@map("documents")
 }
@@ -394,4 +428,135 @@ model SyncStatus {
 
   @@unique([userId, deviceId])
   @@map("sync_status")
+}
+
+// Document Management System
+enum DocumentType {
+  PDF
+  WORD
+  EXCEL
+  IMAGE
+  OTHER
+}
+
+enum DocumentStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+
+model DocumentFolder {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  parentId       String?
+  path           String   // Full folder path for easy queries
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator        User             @relation("FolderCreator", fields: [createdBy], references: [id])
+  parent         DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children       DocumentFolder[] @relation("FolderHierarchy")
+  documents      Document[]
+  permissions    FolderPermission[]
+  // Note: Taggings are handled via polymorphic relations in application code
+
+  @@index([organizationId])
+  @@index([createdBy])
+  @@index([parentId])
+  @@index([path])
+  @@map("document_folders")
+}
+
+model DocumentAnnotation {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  type       String   // 'highlight', 'comment', 'drawing', etc.
+  content    String?  // Annotation text/content
+  position   Json     // Page/position data
+  style      Json?    // Color, size, etc.
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation("DocumentAnnotator", fields: [userId], references: [id])
+
+  @@index([documentId])
+  @@index([userId])
+  @@map("document_annotations")
+}
+
+model DocumentShare {
+  id           String    @id @default(cuid())
+  documentId   String
+  sharedBy     String
+  sharedWith   String?   // User ID, null for public/link shares
+  shareType    String    // 'user', 'link', 'public'
+  permissions  String[]  // 'view', 'comment', 'edit', 'download'
+  expiresAt    DateTime?
+  accessCount  Int       @default(0)
+  lastAccessed DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharer       User      @relation("DocumentSharer", fields: [sharedBy], references: [id])
+  recipient    User?     @relation("DocumentRecipient", fields: [sharedWith], references: [id])
+
+  @@index([documentId])
+  @@index([sharedBy])
+  @@index([sharedWith])
+  @@index([shareType])
+  @@map("document_shares")
+}
+
+model DocumentComment {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  content    String
+  parentId   String?  // For threaded comments
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  document   Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User              @relation("DocumentCommenter", fields: [userId], references: [id])
+  parent     DocumentComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    DocumentComment[] @relation("CommentReplies")
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("document_comments")
+}
+
+model FolderPermission {
+  id         String   @id @default(cuid())
+  folderId   String
+  userId     String?
+  role       UserRole?
+  permissions String[] // 'view', 'upload', 'edit', 'delete', 'share'
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  folder     DocumentFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user       User?          @relation("FolderPermissionUser", fields: [userId], references: [id])
+
+  @@unique([folderId, userId])
+  @@unique([folderId, role])
+  @@index([folderId])
+  @@index([userId])
+  @@index([role])
+  @@map("folder_permissions")
 }

@@ -28,7 +28,9 @@ export {
   TaskStatus,
   TaskPriority,
   ChannelType,
-  MessageType
+  MessageType,
+  DocumentType,
+  DocumentStatus
 } from '../../generated/prisma'
 
 // Additional types for API responses
