@@ -37,41 +37,41 @@ Object.defineProperty(global, 'crypto', {
   }
 })
 
+const mockTasks = [
+  {
+    id: 'task-1',
+    title: 'Test Task',
+    description: 'Test Description',
+    status: TaskStatus.TODO,
+    priority: TaskPriority.MEDIUM,
+    organizationId: 'org-123',
+    assignedTo: 'user-456',
+    createdBy: 'user-123',
+    createdAt: new Date(),
+    assignedUser: {
+      id: 'user-456',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      email: 'jane@example.com'
+    },
+    createdByUser: {
+      id: 'user-123',
+      firstName: 'John',
+      lastName: 'Smith',
+      email: 'john@example.com'
+    },
+    _count: {
+      childTasks: 0,
+      comments: 2,
+      attachments: 1
+    }
+  }
+]
+
 describe('Tasks API', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
-
-  const mockTasks = [
-    {
-      id: 'task-1',
-      title: 'Test Task',
-      description: 'Test Description',
-      status: TaskStatus.TODO,
-      priority: TaskPriority.MEDIUM,
-      organizationId: 'org-123',
-      assignedTo: 'user-456',
-      createdBy: 'user-123',
-      createdAt: new Date(),
-      assignedUser: {
-        id: 'user-456',
-        firstName: 'Jane',
-        lastName: 'Doe',
-        email: 'jane@example.com'
-      },
-      createdByUser: {
-        id: 'user-123',
-        firstName: 'John',
-        lastName: 'Smith',
-        email: 'john@example.com'
-      },
-      _count: {
-        childTasks: 0,
-        comments: 2,
-        attachments: 1
-      }
-    }
-  ]
 
   describe('GET /api/tasks', () => {
     it('should structure pagination response correctly', () => {
@@ -135,7 +135,18 @@ describe('Tasks API', () => {
     }
 
     it('should create task successfully', async () => {
-      const mockCreatedTask = {
+      const mockCreatedTask = createMockCreatedTask()
+
+      setupTaskCreationMocks()
+
+      expect(mockCreatedTask.title).toBe(validTaskData.title)
+      expect(mockCreatedTask.organizationId).toBe('org-123')
+      expect(mockCreatedTask.createdBy).toBe('user-123')
+    })
+
+    // Helper functions for task creation
+    function createMockCreatedTask() {
+      return {
         id: 'task-new',
         ...validTaskData,
         organizationId: 'org-123',
@@ -154,20 +165,17 @@ describe('Tasks API', () => {
           email: 'john@example.com'
         }
       }
+    }
 
+    function setupTaskCreationMocks() {
       mockPrisma.user.findFirst.mockResolvedValue({
         id: 'user-456',
         organizationId: 'org-123',
         isActive: true
       })
-      mockPrisma.task.create.mockResolvedValue(mockCreatedTask)
+      mockPrisma.task.create.mockResolvedValue(createMockCreatedTask())
       mockPrisma.auditLog.create.mockResolvedValue({})
-
-
-      expect(mockCreatedTask.title).toBe(validTaskData.title)
-      expect(mockCreatedTask.organizationId).toBe('org-123')
-      expect(mockCreatedTask.createdBy).toBe('user-123')
-    })
+    }
 
     it('should validate assigned user exists', async () => {
       mockPrisma.user.findFirst.mockResolvedValue(null)
@@ -204,7 +212,12 @@ describe('Tasks API', () => {
     })
 
     it('should create audit log entry', async () => {
-      const expectedAuditData = {
+      const expectedAuditData = createExpectedAuditData()
+      validateAuditDataStructure(expectedAuditData)
+    })
+
+    function createExpectedAuditData() {
+      return {
         organizationId: 'org-123',
         userId: 'user-123',
         action: 'create',
@@ -219,10 +232,12 @@ describe('Tasks API', () => {
         ipAddress: undefined,
         userAgent: undefined
       }
+    }
 
-      expect(expectedAuditData.action).toBe('create')
-      expect(expectedAuditData.resourceType).toBe('task')
-    })
+    function validateAuditDataStructure(auditData: ReturnType<typeof createExpectedAuditData>) {
+      expect(auditData.action).toBe('create')
+      expect(auditData.resourceType).toBe('task')
+    }
   })
 
   describe('Validation', () => {

@@ -44,6 +44,160 @@ interface TaskFilters {
   assignedToMe?: boolean
 }
 
+// Loading state component
+function TaskListLoading() {
+  return (
+    <div className="space-y-4">
+      <div className="animate-pulse">
+        <div className="h-10 bg-gray-200 rounded mb-4"></div>
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-32 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Header component
+interface TaskListHeaderProps {
+  onCreateTask?: (() => void) | undefined
+}
+
+function TaskListHeader({ onCreateTask }: TaskListHeaderProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+      {onCreateTask && (
+        <Button onClick={onCreateTask} size="sm">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          New Task
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// Filter controls component
+interface TaskFiltersControlsProps {
+  searchQuery: string
+  filters: TaskFilters
+  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onStatusFilterChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+  onPriorityFilterChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+}
+
+function TaskFiltersControls({
+  searchQuery,
+  filters,
+  onSearchChange,
+  onStatusFilterChange,
+  onPriorityFilterChange
+}: TaskFiltersControlsProps) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={onSearchChange}
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <select
+            value={filters.status || ''}
+            onChange={onStatusFilterChange}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Status</option>
+            <option value={TaskStatus.TODO}>To Do</option>
+            <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+            <option value={TaskStatus.IN_REVIEW}>In Review</option>
+            <option value={TaskStatus.COMPLETED}>Completed</option>
+            <option value={TaskStatus.CANCELLED}>Cancelled</option>
+          </select>
+
+          <select
+            value={filters.priority || ''}
+            onChange={onPriorityFilterChange}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Priority</option>
+            <option value={TaskPriority.LOW}>Low</option>
+            <option value={TaskPriority.MEDIUM}>Medium</option>
+            <option value={TaskPriority.HIGH}>High</option>
+            <option value={TaskPriority.URGENT}>Urgent</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Empty state component
+interface TaskListEmptyStateProps {
+  searchQuery: string
+  filters: TaskFilters
+  onCreateTask?: (() => void) | undefined
+}
+
+function TaskListEmptyState({ searchQuery, filters, onCreateTask }: TaskListEmptyStateProps) {
+  const hasFilters = searchQuery || Object.keys(filters).length > 0
+  
+  return (
+    <div className="text-center py-12">
+      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+      <h3 className="mt-2 text-sm font-medium text-gray-900">No tasks</h3>
+      <p className="mt-1 text-sm text-gray-500">
+        {hasFilters
+          ? 'No tasks match your search criteria.'
+          : 'Get started by creating a new task.'
+        }
+      </p>
+      {onCreateTask && (
+        <div className="mt-6">
+          <Button onClick={onCreateTask} variant="primary">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Task
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Task grid component
+interface TaskGridProps {
+  tasks: Task[]
+  onTaskClick?: ((task: Task) => void) | undefined
+  onTaskStatusChange?: ((taskId: string, status: TaskStatus) => void) | undefined
+}
+
+function TaskGrid({ tasks, onTaskClick, onTaskStatusChange }: TaskGridProps) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {tasks.map((task) => (
+        <TaskCard
+          key={task.id}
+          task={task}
+          onClick={() => onTaskClick?.(task)}
+          onStatusChange={(status) => onTaskStatusChange?.(task.id, status)}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function TaskList({
   tasks,
   loading = false,
@@ -79,111 +233,33 @@ export function TaskList({
   }
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="animate-pulse">
-          <div className="h-10 bg-gray-200 rounded mb-4"></div>
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
+    return <TaskListLoading />
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
-        {onCreateTask && (
-          <Button onClick={onCreateTask} size="sm">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Task
-          </Button>
-        )}
-      </div>
+      <TaskListHeader onCreateTask={onCreateTask} />
+      
+      <TaskFiltersControls
+        searchQuery={searchQuery}
+        filters={filters}
+        onSearchChange={handleSearchChange}
+        onStatusFilterChange={handleStatusFilterChange}
+        onPriorityFilterChange={handlePriorityFilterChange}
+      />
 
-      {/* Search and Filters */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              type="text"
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-            />
-          </div>
-          
-          <div className="flex gap-2">
-            <select
-              value={filters.status || ''}
-              onChange={handleStatusFilterChange}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Status</option>
-              <option value={TaskStatus.TODO}>To Do</option>
-              <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
-              <option value={TaskStatus.IN_REVIEW}>In Review</option>
-              <option value={TaskStatus.COMPLETED}>Completed</option>
-              <option value={TaskStatus.CANCELLED}>Cancelled</option>
-            </select>
-
-            <select
-              value={filters.priority || ''}
-              onChange={handlePriorityFilterChange}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Priority</option>
-              <option value={TaskPriority.LOW}>Low</option>
-              <option value={TaskPriority.MEDIUM}>Medium</option>
-              <option value={TaskPriority.HIGH}>High</option>
-              <option value={TaskPriority.URGENT}>Urgent</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Task List */}
       {tasks.length === 0 ? (
-        <div className="text-center py-12">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No tasks</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {searchQuery || Object.keys(filters).length > 0 
-              ? 'No tasks match your search criteria.'
-              : 'Get started by creating a new task.'
-            }
-          </p>
-          {onCreateTask && (
-            <div className="mt-6">
-              <Button onClick={onCreateTask} variant="primary">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Task
-              </Button>
-            </div>
-          )}
-        </div>
+        <TaskListEmptyState
+          searchQuery={searchQuery}
+          filters={filters}
+          onCreateTask={onCreateTask}
+        />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onClick={() => onTaskClick?.(task)}
-              onStatusChange={(status) => onTaskStatusChange?.(task.id, status)}
-            />
-          ))}
-        </div>
+        <TaskGrid
+          tasks={tasks}
+          onTaskClick={onTaskClick}
+          onTaskStatusChange={onTaskStatusChange}
+        />
       )}
     </div>
   )

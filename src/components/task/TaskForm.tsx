@@ -30,6 +30,206 @@ interface TaskFormProps {
   submitLabel?: string
 }
 
+function getInitialFormData(initialData?: Partial<TaskFormData>): TaskFormData {
+  const formData: TaskFormData = {
+    title: '',
+    description: '',
+    status: TaskStatus.TODO,
+    priority: TaskPriority.MEDIUM,
+    assignedTo: '',
+    dueDate: '',
+    estimatedHours: null
+  }
+
+  if (initialData) {
+    if (initialData.title) formData.title = initialData.title
+    if (initialData.description) formData.description = initialData.description
+    if (initialData.status) formData.status = initialData.status
+    if (initialData.priority) formData.priority = initialData.priority
+    if (initialData.assignedTo) formData.assignedTo = initialData.assignedTo
+    if (initialData.dueDate) formData.dueDate = initialData.dueDate
+    if (initialData.estimatedHours !== undefined) formData.estimatedHours = initialData.estimatedHours
+  }
+
+  return formData
+}
+
+const validateTitle = (title: string): string => {
+  if (!title.trim()) return 'Title is required'
+  if (title.length > 200) return 'Title must be less than 200 characters'
+  return ''
+}
+
+const validateDescription = (description: string): string => {
+  if (description.length > 2000) return 'Description must be less than 2000 characters'
+  return ''
+}
+
+const validateEstimatedHours = (hours: number | null): string => {
+  if (hours !== null && hours < 0) return 'Estimated hours must be positive'
+  return ''
+}
+
+const validateDueDate = (dueDateStr: string): string => {
+  if (!dueDateStr) return ''
+  
+  const dueDate = new Date(dueDateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  if (dueDate < today) return 'Due date cannot be in the past'
+  return ''
+}
+
+const getInputValue = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  return e.target.type === 'number' 
+    ? (e.target.value === '' ? null : Number(e.target.value))
+    : e.target.value
+}
+
+const clearFieldError = (field: string, errors: Record<string, string>, setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>) => {
+  if (errors[field]) {
+    setErrors(prev => ({
+      ...prev,
+      [field]: ''
+    }))
+  }
+}
+
+const FormHeader = ({ isEdit }: { isEdit: boolean }) => (
+  <div className="mb-6">
+    <h2 className="text-xl font-semibold text-gray-900">
+      {isEdit ? 'Edit Task' : 'Create New Task'}
+    </h2>
+  </div>
+)
+
+const ErrorAlert = ({ error }: { error: string }) => (
+  <Alert variant="error" className="mb-6">
+    {error}
+  </Alert>
+)
+
+const DescriptionField = ({ value, onChange, error }: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  error?: string;
+}) => (
+  <div>
+    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+      Description
+    </label>
+    <textarea
+      id="description"
+      value={value}
+      onChange={onChange}
+      placeholder="Enter task description (optional)"
+      maxLength={2000}
+      rows={4}
+      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    />
+    {error && (
+      <p className="mt-1 text-sm text-red-600">{error}</p>
+    )}
+  </div>
+)
+
+const StatusSelect = ({ value, onChange }: { 
+  value: TaskStatus; 
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void 
+}) => (
+  <div>
+    <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+      Status
+    </label>
+    <select
+      id="status"
+      value={value}
+      onChange={onChange}
+      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    >
+      <option value={TaskStatus.TODO}>To Do</option>
+      <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+      <option value={TaskStatus.IN_REVIEW}>In Review</option>
+      <option value={TaskStatus.COMPLETED}>Completed</option>
+      <option value={TaskStatus.CANCELLED}>Cancelled</option>
+    </select>
+  </div>
+)
+
+const PrioritySelect = ({ value, onChange }: { 
+  value: TaskPriority; 
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void 
+}) => (
+  <div>
+    <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+      Priority
+    </label>
+    <select
+      id="priority"
+      value={value}
+      onChange={onChange}
+      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    >
+      <option value={TaskPriority.LOW}>Low</option>
+      <option value={TaskPriority.MEDIUM}>Medium</option>
+      <option value={TaskPriority.HIGH}>High</option>
+      <option value={TaskPriority.URGENT}>Urgent</option>
+    </select>
+  </div>
+)
+
+const AssigneeSelect = ({ value, onChange, users }: { 
+  value: string; 
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  users: User[];
+}) => (
+  <div>
+    <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-1">
+      Assign To
+    </label>
+    <select
+      id="assignedTo"
+      value={value}
+      onChange={onChange}
+      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    >
+      <option value="">Unassigned</option>
+      {users.map((user) => (
+        <option key={user.id} value={user.id}>
+          {user.firstName} {user.lastName} ({user.email})
+        </option>
+      ))}
+    </select>
+  </div>
+)
+
+const FormActions = ({ onCancel, loading, submitLabel }: {
+  onCancel?: () => void;
+  loading: boolean;
+  submitLabel: string;
+}) => (
+  <div className="flex justify-end space-x-3 pt-6 border-t">
+    {onCancel && (
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={onCancel}
+        disabled={loading}
+      >
+        Cancel
+      </Button>
+    )}
+    <Button
+      type="submit"
+      loading={loading}
+      disabled={loading}
+    >
+      {loading ? 'Saving...' : submitLabel}
+    </Button>
+  </div>
+)
+
 export function TaskForm({
   initialData,
   users = [],
@@ -38,45 +238,22 @@ export function TaskForm({
   loading = false,
   submitLabel = 'Create Task'
 }: TaskFormProps) {
-  const [formData, setFormData] = useState<TaskFormData>({
-    title: initialData?.title || '',
-    description: initialData?.description || '',
-    status: initialData?.status || TaskStatus.TODO,
-    priority: initialData?.priority || TaskPriority.MEDIUM,
-    assignedTo: initialData?.assignedTo || '',
-    dueDate: initialData?.dueDate || '',
-    estimatedHours: initialData?.estimatedHours || null
-  })
-
+  const [formData, setFormData] = useState<TaskFormData>(getInitialFormData(initialData))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitError, setSubmitError] = useState<string>('')
 
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Title is required'
-    } else if (formData.title.length > 200) {
-      newErrors.title = 'Title must be less than 200 characters'
+    const newErrors: Record<string, string> = {
+      title: validateTitle(formData.title),
+      description: validateDescription(formData.description),
+      estimatedHours: validateEstimatedHours(formData.estimatedHours),
+      dueDate: validateDueDate(formData.dueDate)
     }
 
-    if (formData.description.length > 2000) {
-      newErrors.description = 'Description must be less than 2000 characters'
-    }
-
-    if (formData.estimatedHours !== null && formData.estimatedHours < 0) {
-      newErrors.estimatedHours = 'Estimated hours must be positive'
-    }
-
-    if (formData.dueDate) {
-      const dueDate = new Date(formData.dueDate)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
-      if (dueDate < today) {
-        newErrors.dueDate = 'Due date cannot be in the past'
-      }
-    }
+    // Remove empty error messages
+    Object.keys(newErrors).forEach(key => {
+      if (!newErrors[key]) delete newErrors[key]
+    })
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -100,37 +277,21 @@ export function TaskForm({
   const handleInputChange = (field: keyof TaskFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const value = e.target.type === 'number' 
-      ? (e.target.value === '' ? null : Number(e.target.value))
-      : e.target.value
+    const value = getInputValue(e)
 
     setFormData(prev => ({
       ...prev,
       [field]: value
     }))
 
-    // Clear field error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }))
-    }
+    clearFieldError(field, errors, setErrors)
   }
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">
-          {initialData ? 'Edit Task' : 'Create New Task'}
-        </h2>
-      </div>
+      <FormHeader isEdit={!!initialData} />
 
-      {submitError && (
-        <Alert variant="error" className="mb-6">
-          {submitError}
-        </Alert>
-      )}
+      {submitError && <ErrorAlert error={submitError} />}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Input
@@ -143,81 +304,23 @@ export function TaskForm({
           required
         />
 
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={formData.description}
-            onChange={handleInputChange('description')}
-            placeholder="Enter task description (optional)"
-            maxLength={2000}
-            rows={4}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        <DescriptionField 
+          value={formData.description} 
+          onChange={handleInputChange('description')} 
+          error={errors.description}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <StatusSelect value={formData.status} onChange={handleInputChange('status')} />
+          <PrioritySelect value={formData.priority} onChange={handleInputChange('priority')} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <AssigneeSelect 
+            value={formData.assignedTo} 
+            onChange={handleInputChange('assignedTo')} 
+            users={users}
           />
-          {errors.description && (
-            <p className="mt-1 text-sm text-red-600">{errors.description}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              id="status"
-              value={formData.status}
-              onChange={handleInputChange('status')}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={TaskStatus.TODO}>To Do</option>
-              <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
-              <option value={TaskStatus.IN_REVIEW}>In Review</option>
-              <option value={TaskStatus.COMPLETED}>Completed</option>
-              <option value={TaskStatus.CANCELLED}>Cancelled</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-              Priority
-            </label>
-            <select
-              id="priority"
-              value={formData.priority}
-              onChange={handleInputChange('priority')}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={TaskPriority.LOW}>Low</option>
-              <option value={TaskPriority.MEDIUM}>Medium</option>
-              <option value={TaskPriority.HIGH}>High</option>
-              <option value={TaskPriority.URGENT}>Urgent</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-1">
-              Assign To
-            </label>
-            <select
-              id="assignedTo"
-              value={formData.assignedTo}
-              onChange={handleInputChange('assignedTo')}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Unassigned</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.firstName} {user.lastName} ({user.email})
-                </option>
-              ))}
-            </select>
-          </div>
-
           <Input
             label="Due Date"
             type="datetime-local"
@@ -238,25 +341,7 @@ export function TaskForm({
           step="0.5"
         />
 
-        <div className="flex justify-end space-x-3 pt-6 border-t">
-          {onCancel && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onCancel}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-          )}
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={loading}
-          >
-            {loading ? 'Saving...' : submitLabel}
-          </Button>
-        </div>
+        <FormActions {...(onCancel ? { onCancel } : {})} loading={loading} submitLabel={submitLabel} />
       </form>
     </Card>
   )

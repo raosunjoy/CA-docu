@@ -16,6 +16,95 @@ export interface MiddlewareOptions {
 }
 
 /**
+ * Create error response for authentication failures
+ */
+function createAuthErrorResponse(code: string, message: string, status: number): NextResponse {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code,
+        message
+      }
+    },
+    { status }
+  )
+}
+
+/**
+ * Extract and validate authentication token
+ */
+function extractAndValidateToken(request: NextRequest): { token: string | null; error: NextResponse | null } {
+  const authHeader = request.headers.get('authorization')
+  const token = extractBearerToken(authHeader || '')
+  
+  if (!token) {
+    return {
+      token: null,
+      error: createAuthErrorResponse('UNAUTHORIZED', 'Authentication token is required', 401)
+    }
+  }
+  
+  return { token, error: null }
+}
+
+/**
+ * Verify token and get user payload
+ */
+function verifyTokenAndGetUser(token: string): { user: JWTPayload | null; error: NextResponse | null } {
+  try {
+    const user = verifyToken(token)
+    return { user, error: null }
+  } catch {
+    return {
+      user: null,
+      error: createAuthErrorResponse('UNAUTHORIZED', 'Invalid or expired authentication token', 401)
+    }
+  }
+}
+
+/**
+ * Check if user role is in allowed roles
+ */
+function validateUserRole(user: JWTPayload, allowedRoles: UserRole[]): NextResponse | null {
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+    return createAuthErrorResponse('FORBIDDEN', 'Insufficient role permissions', 403)
+  }
+  return null
+}
+
+/**
+ * Check if user has required permissions
+ */
+function validateUserPermissions(user: JWTPayload, requiredPermissions: Permission[]): NextResponse | null {
+  for (const permission of requiredPermissions) {
+    if (!hasPermission(user.role, permission)) {
+      return createAuthErrorResponse('FORBIDDEN', `Missing required permission: ${permission}`, 403)
+    }
+  }
+  return null
+}
+
+/**
+ * Log API access for audit trail
+ */
+function logApiAccess(): void {
+  if (process.env.NODE_ENV === 'development') {
+    // API access logged via audit log
+  }
+}
+
+/**
+ * Handle authentication middleware errors
+ */
+function handleMiddlewareError(error: unknown): NextResponse {
+  // eslint-disable-next-line no-console
+  console.error('Authentication middleware error:', error)
+  
+  return createAuthErrorResponse('INTERNAL_ERROR', 'Authentication service error', 500)
+}
+
+/**
  * Authentication middleware for API routes
  */
 export function authMiddleware(options: MiddlewareOptions = {}) {
@@ -30,102 +119,44 @@ export function authMiddleware(options: MiddlewareOptions = {}) {
     request: NextRequest
   ): Promise<NextResponse | { user: JWTPayload }> {
     try {
-      // Extract token from Authorization header
-      const authHeader = request.headers.get('authorization')
-      const token = extractBearerToken(authHeader || '')
-
       // If authentication is not required, continue
       if (!requireAuth) {
         return NextResponse.next()
       }
 
-      // If token is missing and auth is required, return 401
-      if (!token) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'UNAUTHORIZED',
-              message: 'Authentication token is required'
-            }
-          },
-          { status: 401 }
-        )
+      // Extract and validate token
+      const { token, error: tokenError } = extractAndValidateToken(request)
+      if (tokenError) {
+        return tokenError
       }
 
-      // Verify and decode token
-      let user: JWTPayload
-      try {
-        user = verifyToken(token)
-      } catch {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'UNAUTHORIZED',
-              message: 'Invalid or expired authentication token'
-            }
-          },
-          { status: 401 }
-        )
+      // Verify token and get user
+      const { user, error: userError } = verifyTokenAndGetUser(token!)
+      if (userError) {
+        return userError
       }
 
-      // Check if user role is allowed
-      if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'FORBIDDEN',
-              message: 'Insufficient role permissions'
-            }
-          },
-          { status: 403 }
-        )
+      // Validate user role
+      const roleError = validateUserRole(user!, allowedRoles)
+      if (roleError) {
+        return roleError
       }
 
-      // Check required permissions
-      for (const permission of requiredPermissions) {
-        if (!hasPermission(user.role, permission)) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'FORBIDDEN',
-                message: `Missing required permission: ${permission}`
-              }
-            },
-            { status: 403 }
-          )
-        }
+      // Validate user permissions
+      const permissionError = validateUserPermissions(user!, requiredPermissions)
+      if (permissionError) {
+        return permissionError
       }
 
       // Log API access for audit trail (if not skipped)
       if (!skipAuditLog) {
-        // In a real implementation, this would log to the database
-        // For now, we'll just log to console in development
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.log(`API Access: ${user.email} -> ${request.method} ${request.nextUrl.pathname}`)
-        }
+        logApiAccess()
       }
 
       // Attach user to request and continue
-      return { user }
+      return { user: user! }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Authentication middleware error:', error)
-      
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'Authentication service error'
-          }
-        },
-        { status: 500 }
-      )
+      return handleMiddlewareError(error)
     }
   }
 }

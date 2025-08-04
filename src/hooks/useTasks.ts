@@ -1,6 +1,138 @@
 import { useState, useCallback } from 'react'
 import { TaskStatus, TaskPriority } from '@/types'
 
+// API utility functions
+const buildTasksParams = (
+  filters?: TaskFilters,
+  sort?: TaskSortOptions,
+  page = 1,
+  limit = 20
+): URLSearchParams => {
+  const params = new URLSearchParams()
+  
+  params.set('page', page.toString())
+  params.set('limit', limit.toString())
+  
+  if (sort) {
+    params.set('sortBy', sort.field)
+    params.set('sortOrder', sort.direction)
+  }
+
+  if (filters) {
+    if (filters.status) params.set('status', filters.status)
+    if (filters.priority) params.set('priority', filters.priority)
+    if (filters.assignedTo) params.set('assignedTo', filters.assignedTo)
+    if (filters.createdBy) params.set('createdBy', filters.createdBy)
+    if (filters.search) params.set('search', filters.search)
+  }
+
+  return params
+}
+
+const makeApiRequest = async (url: string, options?: RequestInit) => {
+  const response = await fetch(url, {
+    credentials: 'include',
+    ...options
+  })
+
+  const data = await response.json()
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error?.message || 'API request failed')
+  }
+
+  return data
+}
+
+// State management utilities
+const createInitialState = (): TasksState => ({
+  tasks: [],
+  loading: false,
+  error: null,
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0
+  }
+})
+
+const updateTaskInList = (tasks: Task[], taskId: string, updatedTask: Task): Task[] => {
+  return tasks.map(task => task.id === taskId ? updatedTask : task)
+}
+
+const removeTaskFromList = (tasks: Task[], taskId: string): Task[] => {
+  return tasks.filter(task => task.id !== taskId)
+}
+
+const addTaskToList = (tasks: Task[], newTask: Task): Task[] => {
+  return [newTask, ...tasks]
+}
+
+// Task operations
+const createTaskOperation = async (
+  taskData: CreateTaskData,
+  setState: React.Dispatch<React.SetStateAction<TasksState>>
+): Promise<Task> => {
+  const data = await makeApiRequest('/api/tasks', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(taskData)
+  })
+
+  setState(prev => ({
+    ...prev,
+    tasks: addTaskToList(prev.tasks, data.data),
+    pagination: {
+      ...prev.pagination,
+      total: prev.pagination.total + 1
+    }
+  }))
+
+  return data.data
+}
+
+const updateTaskOperation = async (
+  taskId: string,
+  updates: UpdateTaskData,
+  setState: React.Dispatch<React.SetStateAction<TasksState>>
+): Promise<Task> => {
+  const data = await makeApiRequest(`/api/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updates)
+  })
+
+  setState(prev => ({
+    ...prev,
+    tasks: updateTaskInList(prev.tasks, taskId, data.data)
+  }))
+
+  return data.data
+}
+
+const deleteTaskOperation = async (
+  taskId: string,
+  setState: React.Dispatch<React.SetStateAction<TasksState>>
+): Promise<void> => {
+  await makeApiRequest(`/api/tasks/${taskId}`, {
+    method: 'DELETE'
+  })
+
+  setState(prev => ({
+    ...prev,
+    tasks: removeTaskFromList(prev.tasks, taskId),
+    pagination: {
+      ...prev.pagination,
+      total: prev.pagination.total - 1
+    }
+  }))
+}
+
 export interface Task {
   id: string
   title: string
@@ -14,7 +146,7 @@ export interface Task {
   completedAt?: string
   estimatedHours?: number
   actualHours?: number
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
   assignedUser?: {
@@ -62,7 +194,7 @@ export interface CreateTaskData {
   parentTaskId?: string
   dueDate?: string
   estimatedHours?: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface UpdateTaskData extends Partial<CreateTaskData> {
@@ -82,17 +214,7 @@ export interface TasksState {
 }
 
 export function useTasks() {
-  const [state, setState] = useState<TasksState>({
-    tasks: [],
-    loading: false,
-    error: null,
-    pagination: {
-      page: 1,
-      limit: 20,
-      total: 0,
-      totalPages: 0
-    }
-  })
+  const [state, setState] = useState<TasksState>(createInitialState)
 
   const fetchTasks = useCallback(async (
     filters?: TaskFilters,
@@ -103,44 +225,15 @@ export function useTasks() {
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const params = new URLSearchParams()
-      
-      params.set('page', page.toString())
-      params.set('limit', limit.toString())
-      
-      if (sort) {
-        params.set('sortBy', sort.field)
-        params.set('sortOrder', sort.direction)
-      }
+      const params = buildTasksParams(filters, sort, page, limit)
+      const data = await makeApiRequest(`/api/tasks?${params.toString()}`)
 
-      if (filters) {
-        if (filters.status) params.set('status', filters.status)
-        if (filters.priority) params.set('priority', filters.priority)
-        if (filters.assignedTo) params.set('assignedTo', filters.assignedTo)
-        if (filters.createdBy) params.set('createdBy', filters.createdBy)
-        if (filters.search) params.set('search', filters.search)
-      }
-
-      const response = await fetch(`/api/tasks?${params.toString()}`, {
-        credentials: 'include'
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tasks')
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        setState(prev => ({
-          ...prev,
-          tasks: data.data.tasks,
-          pagination: data.data.pagination,
-          loading: false
-        }))
-      } else {
-        throw new Error(data.error?.message || 'Failed to fetch tasks')
-      }
+      setState(prev => ({
+        ...prev,
+        tasks: data.data.tasks,
+        pagination: data.data.pagination,
+        loading: false
+      }))
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -150,123 +243,33 @@ export function useTasks() {
     }
   }, [])
 
-  const createTask = async (taskData: CreateTaskData): Promise<Task> => {
-    const response = await fetch('/api/tasks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify(taskData)
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Failed to create task')
-    }
-
-    // Add the new task to the current state
-    setState(prev => ({
-      ...prev,
-      tasks: [data.data, ...prev.tasks],
-      pagination: {
-        ...prev.pagination,
-        total: prev.pagination.total + 1
-      }
-    }))
-
-    return data.data
+  const createTask = (taskData: CreateTaskData): Promise<Task> => {
+    return createTaskOperation(taskData, setState)
   }
 
-  const updateTask = async (taskId: string, updates: UpdateTaskData): Promise<Task> => {
-    const response = await fetch(`/api/tasks/${taskId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify(updates)
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Failed to update task')
-    }
-
-    // Update the task in the current state
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(task => 
-        task.id === taskId ? data.data : task
-      )
-    }))
-
-    return data.data
+  const updateTask = (taskId: string, updates: UpdateTaskData): Promise<Task> => {
+    return updateTaskOperation(taskId, updates, setState)
   }
 
-  const deleteTask = async (taskId: string): Promise<void> => {
-    const response = await fetch(`/api/tasks/${taskId}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Failed to delete task')
-    }
-
-    // Remove the task from the current state
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.filter(task => task.id !== taskId),
-      pagination: {
-        ...prev.pagination,
-        total: prev.pagination.total - 1
-      }
-    }))
+  const deleteTask = (taskId: string): Promise<void> => {
+    return deleteTaskOperation(taskId, setState)
   }
 
   const getTask = async (taskId: string): Promise<Task> => {
-    const response = await fetch(`/api/tasks/${taskId}`, {
-      credentials: 'include'
-    })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Failed to fetch task')
-    }
-
+    const data = await makeApiRequest(`/api/tasks/${taskId}`)
     return data.data
   }
 
   const lockTask = async (taskId: string): Promise<void> => {
-    const response = await fetch(`/api/tasks/${taskId}/lock`, {
-      method: 'POST',
-      credentials: 'include'
+    await makeApiRequest(`/api/tasks/${taskId}/lock`, {
+      method: 'POST'
     })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Failed to lock task')
-    }
   }
 
   const unlockTask = async (taskId: string): Promise<void> => {
-    const response = await fetch(`/api/tasks/${taskId}/lock`, {
-      method: 'DELETE',
-      credentials: 'include'
+    await makeApiRequest(`/api/tasks/${taskId}/lock`, {
+      method: 'DELETE'
     })
-
-    const data = await response.json()
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error?.message || 'Failed to unlock task')
-    }
   }
 
   const clearError = () => {

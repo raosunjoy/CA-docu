@@ -13,42 +13,6 @@ Object.defineProperty(global, 'crypto', {
   }
 })
 
-// Helper functions
-
-function createMockUser() {
-  return {
-    id: 'user-123',
-    email: 'test@example.com',
-    firstName: 'John',
-    lastName: 'Doe',
-    role: UserRole.ASSOCIATE,
-    isActive: true,
-    lastLoginAt: null,
-    organization: {
-      id: 'org-123',
-      name: 'Test Org',
-      subdomain: 'test'
-    },
-    permissions: ['read:tasks']
-  }
-}
-
-function setupSuccessfulAuthResponse(user: ReturnType<typeof createMockUser>) {
-  mockFetch.mockResolvedValueOnce({
-    ok: true,
-    json: async () => ({
-      success: true,
-      data: user
-    })
-  })
-}
-
-async function waitForAuthCheck() {
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 0))
-  })
-}
-
 describe('useAuth', () => {
   beforeEach(() => {
     mockFetch.mockClear()
@@ -69,11 +33,35 @@ describe('useAuth', () => {
   })
 
   it('should handle successful authentication check', async () => {
-    const mockUser = createMockUser()
-    setupSuccessfulAuthResponse(mockUser)
+    const mockUser = {
+      id: 'user-123',
+      email: 'test@example.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      role: UserRole.ASSOCIATE,
+      isActive: true,
+      lastLoginAt: null,
+      organization: {
+        id: 'org-123',
+        name: 'Test Org',
+        subdomain: 'test'
+      },
+      permissions: ['read:tasks']
+    }
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: mockUser
+      })
+    })
 
     const { result } = renderHook(() => useAuth())
-    await waitForAuthCheck()
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
 
     expect(result.current.user).toEqual(mockUser)
     expect(result.current.loading).toBe(false)
@@ -81,18 +69,6 @@ describe('useAuth', () => {
   })
 
   it('should handle login success', async () => {
-    setupLoginSuccessMocks()
-
-    const { result } = renderHook(() => useAuth())
-    await waitForAuthCheck()
-
-    const loginResult = await performLogin(result)
-
-    expect(loginResult).toEqual({ success: true })
-    expect(result.current.user).toBeDefined()
-  })
-
-  function setupLoginSuccessMocks() {
     mockFetch
       .mockResolvedValueOnce({ ok: false }) // Initial auth check
       .mockResolvedValueOnce({
@@ -107,9 +83,13 @@ describe('useAuth', () => {
           }
         })
       })
-  }
 
-  async function performLogin(result: { current: { login: (credentials: { email: string; password: string }) => Promise<unknown> } }) {
+    const { result } = renderHook(() => useAuth())
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
     let loginResult
     await act(async () => {
       loginResult = await result.current.login({
@@ -117,25 +97,12 @@ describe('useAuth', () => {
         password: 'password123'
       })
     })
-    return loginResult
-  }
 
-  it('should handle login failure', async () => {
-    setupLoginFailureMocks()
-
-    const { result } = renderHook(() => useAuth())
-    await waitForAuthCheck()
-
-    const loginResult = await performLoginWithWrongCredentials(result)
-
-    expect(loginResult).toEqual({ 
-      success: false, 
-      error: 'Invalid credentials' 
-    })
-    expect(result.current.error).toBe('Invalid credentials')
+    expect(loginResult).toEqual({ success: true })
+    expect(result.current.user).toBeDefined()
   })
 
-  function setupLoginFailureMocks() {
+  it('should handle login failure', async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: false }) // Initial auth check
       .mockResolvedValueOnce({
@@ -145,9 +112,13 @@ describe('useAuth', () => {
           error: { message: 'Invalid credentials' }
         })
       })
-  }
 
-  async function performLoginWithWrongCredentials(result: { current: { login: (credentials: { email: string; password: string }) => Promise<unknown> } }) {
+    const { result } = renderHook(() => useAuth())
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
     let loginResult
     await act(async () => {
       loginResult = await result.current.login({
@@ -155,22 +126,15 @@ describe('useAuth', () => {
         password: 'wrongpassword'
       })
     })
-    return loginResult
-  }
 
-  it('should handle register success', async () => {
-    setupRegisterSuccessMocks()
-
-    const { result } = renderHook(() => useAuth())
-    await waitForAuthCheck()
-
-    const registerResult = await performRegistration(result)
-
-    expect(registerResult).toEqual({ success: true })
-    expect(result.current.user).toBeDefined()
+    expect(loginResult).toEqual({ 
+      success: false, 
+      error: 'Invalid credentials' 
+    })
+    expect(result.current.error).toBe('Invalid credentials')
   })
 
-  function setupRegisterSuccessMocks() {
+  it('should handle register success', async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: false }) // Initial auth check
       .mockResolvedValueOnce({
@@ -185,9 +149,13 @@ describe('useAuth', () => {
           }
         })
       })
-  }
 
-  async function performRegistration(result: { current: { register: (data: { email: string; password: string; firstName: string; lastName: string; organizationId: string; role: UserRole }) => Promise<unknown> } }) {
+    const { result } = renderHook(() => useAuth())
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
     let registerResult
     await act(async () => {
       registerResult = await result.current.register({
@@ -199,8 +167,10 @@ describe('useAuth', () => {
         role: UserRole.ASSOCIATE
       })
     })
-    return registerResult
-  }
+
+    expect(registerResult).toEqual({ success: true })
+    expect(result.current.user).toBeDefined()
+  })
 
   it('should handle logout', async () => {
     mockFetch

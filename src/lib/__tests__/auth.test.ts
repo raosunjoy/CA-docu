@@ -168,20 +168,27 @@ describe('Authentication Utilities', () => {
     })
 
     it('should reject weak passwords', () => {
-      const weakPasswords = [
+      const weakPasswords = getWeakPasswordSamples()
+      validateWeakPasswords(weakPasswords)
+    })
+
+    function getWeakPasswordSamples() {
+      return [
         'short',
         'nouppercase123!',
         'NOLOWERCASE123!',
         'NoNumbers!',
         'NoSpecialChars123'
       ]
+    }
 
-      weakPasswords.forEach(password => {
+    function validateWeakPasswords(passwords: string[]) {
+      passwords.forEach(password => {
         const result = validatePasswordStrength(password)
         expect(result.isValid).toBe(false)
         expect(result.errors.length).toBeGreaterThan(0)
       })
-    })
+    }
 
     it('should provide specific error messages', () => {
       const result = validatePasswordStrength('weak')
@@ -195,30 +202,38 @@ describe('Authentication Utilities', () => {
 
   describe('Email Validation', () => {
     it('should validate correct email addresses', () => {
-      const validEmails = [
+      const validEmails = getValidEmailSamples()
+      validateEmailAddresses(validEmails, true)
+    })
+
+    function getValidEmailSamples() {
+      return [
         'test@example.com',
         'user.name@domain.co.uk',
         'first+last@subdomain.example.org'
       ]
+    }
 
-      validEmails.forEach(email => {
-        expect(validateEmail(email)).toBe(true)
+    function validateEmailAddresses(emails: string[], shouldBeValid: boolean) {
+      emails.forEach(email => {
+        expect(validateEmail(email)).toBe(shouldBeValid)
       })
-    })
+    }
 
     it('should reject invalid email addresses', () => {
-      const invalidEmails = [
+      const invalidEmails = getInvalidEmailSamples()
+      validateEmailAddresses(invalidEmails, false)
+    })
+
+    function getInvalidEmailSamples() {
+      return [
         'invalid-email',
         '@domain.com',
         'user@',
         'user@domain',
         'user name@domain.com'
       ]
-
-      invalidEmails.forEach(email => {
-        expect(validateEmail(email)).toBe(false)
-      })
-    })
+    }
   })
 
   describe('Utility Functions', () => {
@@ -243,22 +258,31 @@ describe('Authentication Utilities', () => {
     })
 
     it('should create session token with user data', () => {
-      const user = {
+      const user = createTestUser()
+      const deviceId = 'device-123'
+      
+      const token = createSessionToken(user, deviceId)
+      const decoded = verifyToken(token)
+      
+      validateSessionTokenData(decoded, user, deviceId)
+    })
+
+    function createTestUser() {
+      return {
         id: 'user-123',
         email: 'test@example.com',
         role: UserRole.ASSOCIATE,
         organizationId: 'org-123'
       }
+    }
 
-      const token = createSessionToken(user, 'device-123')
-      const decoded = verifyToken(token)
-      
+    function validateSessionTokenData(decoded: { sub: string; email: string; role: UserRole; orgId: string; deviceId?: string; permissions: Permission[] }, user: ReturnType<typeof createTestUser>, deviceId: string) {
       expect(decoded.sub).toBe(user.id)
       expect(decoded.email).toBe(user.email)
       expect(decoded.role).toBe(user.role)
       expect(decoded.orgId).toBe(user.organizationId)
-      expect(decoded.deviceId).toBe('device-123')
+      expect(decoded.deviceId).toBe(deviceId)
       expect(decoded.permissions).toEqual(getRolePermissions(user.role))
-    })
+    }
   })
 })

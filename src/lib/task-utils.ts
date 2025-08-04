@@ -145,30 +145,53 @@ export function generateTaskNumber(
 }
 
 /**
+ * Helper to build array or single value filter
+ */
+function buildArrayOrSingleFilter<T>(value: T | T[]): { in: T[] } | T {
+  return Array.isArray(value) ? { in: value } : value
+}
+
+/**
+ * Helper to build date range filter
+ */
+function buildDateRangeFilter(dateRange: { from?: Date; to?: Date }) {
+  const dateFilter: Record<string, Date> = {}
+  if (dateRange.from) {
+    dateFilter.gte = dateRange.from
+  }
+  if (dateRange.to) {
+    dateFilter.lte = dateRange.to
+  }
+  return dateFilter
+}
+
+/**
+ * Helper to build search filter
+ */
+function buildSearchFilter(searchTerm: string) {
+  return [
+    { title: { contains: searchTerm, mode: 'insensitive' } },
+    { description: { contains: searchTerm, mode: 'insensitive' } }
+  ]
+}
+
+/**
  * Build Prisma where clause from filters
  */
 export function buildTaskWhereClause(
   organizationId: string,
   filters: TaskFilters
 ) {
-  const where: any = {
+  const where: Record<string, unknown> = {
     organizationId
   }
 
   if (filters.status) {
-    if (Array.isArray(filters.status)) {
-      where.status = { in: filters.status }
-    } else {
-      where.status = filters.status
-    }
+    where.status = buildArrayOrSingleFilter(filters.status)
   }
 
   if (filters.priority) {
-    if (Array.isArray(filters.priority)) {
-      where.priority = { in: filters.priority }
-    } else {
-      where.priority = filters.priority
-    }
+    where.priority = buildArrayOrSingleFilter(filters.priority)
   }
 
   if (filters.assignedTo) {
@@ -184,20 +207,11 @@ export function buildTaskWhereClause(
   }
 
   if (filters.dueDate) {
-    where.dueDate = {}
-    if (filters.dueDate.from) {
-      where.dueDate.gte = filters.dueDate.from
-    }
-    if (filters.dueDate.to) {
-      where.dueDate.lte = filters.dueDate.to
-    }
+    where.dueDate = buildDateRangeFilter(filters.dueDate)
   }
 
   if (filters.search) {
-    where.OR = [
-      { title: { contains: filters.search, mode: 'insensitive' } },
-      { description: { contains: filters.search, mode: 'insensitive' } }
-    ]
+    where.OR = buildSearchFilter(filters.search)
   }
 
   return where
