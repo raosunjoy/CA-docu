@@ -25,8 +25,10 @@ This document provides essential context and guidelines for Claude Code when wor
 - ✅ **100% Test Passes** - All tests must pass before proceeding
 - ✅ **Zero TypeScript Errors** - No `any` types, proper typing required
 - ✅ **Zero Lint Errors** - Code style must be perfect
-- ✅ **Max 75 Lines Per Function** - Break down larger functions
+- ✅ **Max 75 Lines Per Function** - Break down larger functions (production code only)
 - ✅ **TDD Process Followed** - Test first, then code
+
+**Note**: Function size and complexity limits apply to production code only. Test files are exempt from these restrictions as they often require longer functions for comprehensive test scenarios.
 
 ### **Pre-Development Commands (MANDATORY):**
 ```bash

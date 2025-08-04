@@ -36,9 +36,11 @@ const config = [
     }
   },
   {
-    files: ['**/*.test.ts', '**/*.test.tsx'],
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/__tests__/**/*.ts', '**/__tests__/**/*.tsx'],
     rules: {
-      'no-console': 'off'
+      'no-console': 'off',
+      'max-lines-per-function': 'off',
+      'complexity': 'off'
     }
   },
   {
