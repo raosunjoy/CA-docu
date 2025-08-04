@@ -230,14 +230,8 @@ const FormActions = ({ onCancel, loading, submitLabel }: {
   </div>
 )
 
-export function TaskForm({
-  initialData,
-  users = [],
-  onSubmit,
-  onCancel,
-  loading = false,
-  submitLabel = 'Create Task'
-}: TaskFormProps) {
+// Hook for form state management
+function useTaskForm(initialData?: Partial<TaskFormData>, onSubmit?: (data: TaskFormData) => Promise<void>) {
   const [formData, setFormData] = useState<TaskFormData>(getInitialFormData(initialData))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitError, setSubmitError] = useState<string>('')
@@ -268,7 +262,7 @@ export function TaskForm({
     }
 
     try {
-      await onSubmit(formData)
+      await onSubmit?.(formData)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'An error occurred')
     }
@@ -287,60 +281,87 @@ export function TaskForm({
     clearFieldError(field, errors, setErrors)
   }
 
+  return {
+    formData,
+    errors,
+    submitError,
+    handleSubmit,
+    handleInputChange
+  }
+}
+
+// Form fields component
+const TaskFormFields = ({ formData, errors, handleInputChange, users }: {
+  formData: TaskFormData
+  errors: Record<string, string>
+  handleInputChange: (field: keyof TaskFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
+  users: Array<{ id: string; firstName: string; lastName: string }>
+}) => (
+  <>
+    <Input
+      label="Title *"
+      value={formData.title}
+      onChange={handleInputChange('title')}
+      error={errors.title}
+      placeholder="Enter task title"
+      maxLength={200}
+      required
+    />
+
+    <DescriptionField 
+      value={formData.description} 
+      onChange={handleInputChange('description')} 
+      error={errors.description}
+    />
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <StatusSelect value={formData.status} onChange={handleInputChange('status')} />
+      <PrioritySelect value={formData.priority} onChange={handleInputChange('priority')} />
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <AssigneeSelect 
+        value={formData.assignedTo} 
+        onChange={handleInputChange('assignedTo')} 
+        users={users}
+      />
+      <Input
+        label="Due Date"
+        type="datetime-local"
+        value={formData.dueDate}
+        onChange={handleInputChange('dueDate')}
+        error={errors.dueDate}
+      />
+    </div>
+
+    <Input
+      label="Estimated Hours"
+      type="number"
+      value={formData.estimatedHours?.toString() || ''}
+      onChange={handleInputChange('estimatedHours')}
+      error={errors.estimatedHours}
+      placeholder="0"
+      min="0"
+      step="0.5"
+    />
+  </>
+)
+
+// Main TaskForm component
+export function TaskForm({ initialData, users = [], onSubmit, onCancel, loading = false, submitLabel = 'Create Task' }: TaskFormProps) {
+  const { formData, errors, submitError, handleSubmit, handleInputChange } = useTaskForm(initialData, onSubmit)
+
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <FormHeader isEdit={!!initialData} />
-
       {submitError && <ErrorAlert error={submitError} />}
-
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Input
-          label="Title *"
-          value={formData.title}
-          onChange={handleInputChange('title')}
-          error={errors.title}
-          placeholder="Enter task title"
-          maxLength={200}
-          required
+        <TaskFormFields 
+          formData={formData} 
+          errors={errors} 
+          handleInputChange={handleInputChange} 
+          users={users} 
         />
-
-        <DescriptionField 
-          value={formData.description} 
-          onChange={handleInputChange('description')} 
-          error={errors.description}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <StatusSelect value={formData.status} onChange={handleInputChange('status')} />
-          <PrioritySelect value={formData.priority} onChange={handleInputChange('priority')} />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <AssigneeSelect 
-            value={formData.assignedTo} 
-            onChange={handleInputChange('assignedTo')} 
-            users={users}
-          />
-          <Input
-            label="Due Date"
-            type="datetime-local"
-            value={formData.dueDate}
-            onChange={handleInputChange('dueDate')}
-            error={errors.dueDate}
-          />
-        </div>
-
-        <Input
-          label="Estimated Hours"
-          type="number"
-          value={formData.estimatedHours?.toString() || ''}
-          onChange={handleInputChange('estimatedHours')}
-          error={errors.estimatedHours}
-          placeholder="0"
-          min="0"
-          step="0.5"
-        />
-
         <FormActions {...(onCancel ? { onCancel } : {})} loading={loading} submitLabel={submitLabel} />
       </form>
     </Card>
