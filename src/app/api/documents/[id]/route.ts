@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
-import { DocumentStatus } from '@prisma/client'
+import { DocumentStatus } from '../../../../../generated/prisma'
 import { z } from 'zod'
 import { unlink } from 'fs/promises'
 
@@ -122,7 +122,7 @@ function createErrorResponse(code: string, message: string, status: number, deta
       error: {
         code,
         message,
-        ...(details && { details })
+        ...(details ? { details } : {})
       }
     } as ErrorResponse,
     { status }
@@ -172,9 +172,93 @@ async function validateFolderExists(folderId: string, organizationId: string): P
   return null
 }
 
+type DocumentUpdateData = z.infer<typeof documentUpdateSchema>
+
+interface ValidatedDocumentPatchRequest {
+  user: { sub: string; orgId: string }
+  documentId: string
+  updateData: DocumentUpdateData
+}
+
+async function validateDocumentPatchRequest(request: NextRequest, params: Promise<{ id: string }>): Promise<ValidatedDocumentPatchRequest | NextResponse> {
+  const authResult = await authMiddleware()(request)
+  if (authResult instanceof NextResponse) {
+    return authResult
+  }
+
+  const { user } = authResult
+  const { id } = await params
+
+  try {
+    const body = await request.json()
+    const updateData = documentUpdateSchema.parse(body)
+    return { user, documentId: id, updateData }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
+    }
+    throw error
+  }
+}
+
+async function validateDocumentAndFolder(documentId: string, updateData: DocumentUpdateData, organizationId: string): Promise<NextResponse | null> {
+  // Check if document exists and user has access
+  const documentError = await validateDocumentAccess(documentId, organizationId)
+  if (documentError) {
+    return documentError
+  }
+
+  // Validate folder exists if folderId is provided
+  if (updateData.folderId) {
+    const folderError = await validateFolderExists(updateData.folderId, organizationId)
+    if (folderError) {
+      return folderError
+    }
+  }
+
+  return null
+}
+
+function prepareDocumentUpdateData(updateData: DocumentUpdateData) {
+  return {
+    ...(updateData.name && { name: updateData.name }),
+    ...(updateData.description !== undefined && { description: updateData.description || null }),
+    ...(updateData.folderId !== undefined && { folderId: updateData.folderId || null }),
+    ...(updateData.status && { status: updateData.status })
+  }
+}
+
+function getDocumentUpdateIncludes() {
+  return {
+    uploader: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true
+      }
+    },
+    folder: {
+      select: {
+        id: true,
+        name: true,
+        path: true
+      }
+    }
+  }
+}
+
+async function updateDocumentWithIncludes(documentId: string, updateData: DocumentUpdateData) {
+  return prisma.document.update({
+    where: { id: documentId },
+    data: prepareDocumentUpdateData(updateData),
+    include: getDocumentUpdateIncludes()
+  })
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -182,7 +266,7 @@ export async function GET(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     const document = await findDocument(id, user.orgId)
@@ -202,69 +286,31 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await authMiddleware()(request)
-  if (authResult instanceof NextResponse) {
-    return authResult
+  const validationResult = await validateDocumentPatchRequest(request, params)
+  if (validationResult instanceof NextResponse) {
+    return validationResult
   }
 
-  const { user } = authResult
-  const { id } = params
+  const { user, documentId, updateData } = validationResult
 
   try {
-    const body = await request.json()
-    const updateData = documentUpdateSchema.parse(body)
-
-    // Check if document exists and user has access
-    const documentError = await validateDocumentAccess(id, user.orgId)
-    if (documentError) {
-      return documentError
+    const validationError = await validateDocumentAndFolder(documentId, updateData, user.orgId)
+    if (validationError) {
+      return validationError
     }
 
-    // Validate folder exists if folderId is provided
-    if (updateData.folderId) {
-      const folderError = await validateFolderExists(updateData.folderId, user.orgId)
-      if (folderError) {
-        return folderError
-      }
-    }
-
-    const document = await prisma.document.update({
-      where: { id },
-      data: updateData,
-      include: {
-        uploader: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        folder: {
-          select: {
-            id: true,
-            name: true,
-            path: true
-          }
-        }
-      }
-    })
-
+    const document = await updateDocumentWithIncludes(documentId, updateData)
     return createSuccessResponse({ document })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
-    }
-
+  } catch {
     return createErrorResponse('UPDATE_FAILED', 'Failed to update document', 500)
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -272,7 +318,7 @@ export async function DELETE(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     // Check if document exists and user has access

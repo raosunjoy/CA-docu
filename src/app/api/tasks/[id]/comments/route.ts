@@ -56,7 +56,7 @@ async function getTaskComments(taskId: string): Promise<CommentData[]> {
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<CommentData[]>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -65,7 +65,7 @@ export async function GET(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
 
     const task = await validateTaskAccess(taskId, user.orgId)
     if (!task) {
@@ -130,7 +130,7 @@ async function createTaskComment(taskId: string, content: string, userId: string
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<CommentData>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -139,7 +139,7 @@ export async function POST(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
 
     const body = await request.json()
     const validatedData = createCommentSchema.parse(body)

@@ -114,7 +114,7 @@ function createErrorResponse(code: string, message: string, status: number, deta
       error: {
         code,
         message,
-        ...(details && { details })
+        ...(details ? { details } : {})
       }
     } as ErrorResponse,
     { status }
@@ -222,7 +222,9 @@ async function updateFolderData(
   return prisma.documentFolder.update({
     where: { id },
     data: {
-      ...updateData,
+      ...(updateData.name && { name: updateData.name }),
+      ...(updateData.description !== undefined && { description: updateData.description || null }),
+      ...(updateData.parentId !== undefined && { parentId: updateData.parentId || null }),
       path: newPath
     },
     include: {
@@ -246,7 +248,7 @@ async function updateFolderData(
 
 function handlePatchError(error: unknown): NextResponse {
   if (error instanceof z.ZodError) {
-    return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
+    return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
   }
 
   if (error instanceof Error) {
@@ -292,38 +294,67 @@ async function validateFolderUpdateName(
 }
 
 function calculateNewPath(
-  updateData: { name?: string; parentId?: string },
+  updateData: { name?: string; parentId?: string | undefined },
   existingFolder: { name: string; path: string; parent?: { path: string } | null },
   newParent: { path: string } | null
 ): string {
   if (updateData.name || newParent !== null) {
     const folderName = updateData.name || existingFolder.name
-    const parentPath = newParent?.path || (updateData.parentId === null ? null : existingFolder.parent?.path)
+    const parentPath = newParent?.path || (updateData.parentId === null ? null : existingFolder.parent?.path || null)
     return buildFolderPath(parentPath, folderName)
   }
   return existingFolder.path
 }
 
+async function validateFolderUpdates(
+  id: string,
+  updateData: { name?: string | undefined; description?: string | undefined; parentId?: string | undefined },
+  existingFolder: { name: string; parentId: string | null; path: string; parent?: { path: string } | null },
+  organizationId: string
+) {
+  // Validate folder move
+  const moveData = updateData.parentId !== undefined ? { parentId: updateData.parentId } : {}
+  const newParent = await validateFolderUpdateMove(id, moveData, existingFolder, organizationId)
+
+  // Check for name conflicts
+  const nameData = {
+    ...(updateData.name !== undefined && { name: updateData.name }),
+    ...(updateData.parentId !== undefined && { parentId: updateData.parentId })
+  }
+  const nameError = await validateFolderUpdateName(id, nameData, existingFolder, organizationId)
+  
+  return { newParent, nameError }
+}
+
+function prepareFolderUpdateData(updateData: { name?: string | undefined; description?: string | undefined; parentId?: string | undefined }) {
+  return {
+    pathData: {
+      ...(updateData.name !== undefined && { name: updateData.name }),
+      ...(updateData.parentId !== undefined && { parentId: updateData.parentId })
+    },
+    folderUpdateData: {
+      ...(updateData.name !== undefined && { name: updateData.name }),
+      ...(updateData.description !== undefined && { description: updateData.description }),
+      ...(updateData.parentId !== undefined && { parentId: updateData.parentId })
+    }
+  }
+}
+
 async function processFolderUpdate(
   id: string,
-  updateData: { name?: string; description?: string; parentId?: string },
+  updateData: { name?: string | undefined; description?: string | undefined; parentId?: string | undefined },
   existingFolder: { name: string; parentId: string | null; path: string; parent?: { path: string } | null },
   organizationId: string
 ): Promise<{ folder: unknown; pathChanged: boolean } | NextResponse> {
-  // Validate folder move
-  const newParent = await validateFolderUpdateMove(id, updateData, existingFolder, organizationId)
-
-  // Check for name conflicts
-  const nameError = await validateFolderUpdateName(id, updateData, existingFolder, organizationId)
+  const { newParent, nameError } = await validateFolderUpdates(id, updateData, existingFolder, organizationId)
+  
   if (nameError) {
     return nameError
   }
 
-  // Calculate new path
-  const newPath = calculateNewPath(updateData, existingFolder, newParent)
-
-  // Update folder
-  const folder = await updateFolderData(id, updateData, newPath)
+  const { pathData, folderUpdateData } = prepareFolderUpdateData(updateData)
+  const newPath = calculateNewPath(pathData, existingFolder, newParent)
+  const folder = await updateFolderData(id, folderUpdateData, newPath)
   const pathChanged = newPath !== existingFolder.path
 
   return { folder, pathChanged }
@@ -331,7 +362,7 @@ async function processFolderUpdate(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -339,7 +370,7 @@ export async function GET(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     const folder = await findFolder(id, user.orgId)
@@ -356,7 +387,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -364,7 +395,7 @@ export async function PATCH(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     const body = await request.json()
@@ -399,7 +430,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -407,7 +438,7 @@ export async function DELETE(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     // Check if folder exists

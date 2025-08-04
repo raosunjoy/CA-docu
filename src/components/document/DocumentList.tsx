@@ -164,14 +164,14 @@ const DocumentActions = ({
   <div className="flex items-center space-x-2 ml-4">
     <Button
       variant="secondary"
-      size="small"
+      size="sm"
       onClick={() => onSelect?.(document)}
     >
       View
     </Button>
     <Button
       variant="secondary"
-      size="small"
+      size="sm"
       onClick={onDelete}
       disabled={deleting}
       loading={deleting}
@@ -271,7 +271,7 @@ const DocumentItem = ({
         {showActions && (
           <DocumentActions 
             document={document}
-            onSelect={onSelect}
+            {...(onSelect && { onSelect })}
             onDelete={handleDelete}
             deleting={deleting}
           />
@@ -379,7 +379,7 @@ const DocumentsPagination = ({
     <div className="flex space-x-2">
       <Button
         variant="secondary"
-        size="small"
+        size="sm"
         onClick={() => onPageChange(pagination.page - 1)}
         disabled={pagination.page <= 1 || loading}
       >
@@ -387,7 +387,7 @@ const DocumentsPagination = ({
       </Button>
       <Button
         variant="secondary"
-        size="small"
+        size="sm"
         onClick={() => onPageChange(pagination.page + 1)}
         disabled={pagination.page >= pagination.pages || loading}
       >
@@ -415,10 +415,10 @@ const DocumentGrid = ({
       <DocumentItem
         key={document.id}
         document={document}
-        onSelect={onDocumentSelect}
-        onDelete={onDocumentDelete}
-        showActions={showActions}
-        selectable={selectable}
+        {...(onDocumentSelect && { onSelect: onDocumentSelect })}
+        {...(onDocumentDelete && { onDelete: onDocumentDelete })}
+        {...(showActions !== undefined && { showActions })}
+        {...(selectable !== undefined && { selectable })}
       />
     ))}
   </div>
@@ -533,12 +533,12 @@ export function DocumentList({
       )}
 
       {documents.length === 0 ? (
-        <EmptyDocuments filters={filters} folderId={folderId} />
+        <EmptyDocuments filters={filters} {...(folderId && { folderId })} />
       ) : (
         <>
           <DocumentGrid
             documents={documents}
-            onDocumentSelect={onDocumentSelect}
+            {...(onDocumentSelect && { onDocumentSelect })}
             onDocumentDelete={handleDelete}
             showActions={showActions}
             selectable={selectable}

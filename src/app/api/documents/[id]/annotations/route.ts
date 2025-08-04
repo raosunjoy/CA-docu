@@ -67,7 +67,7 @@ function createErrorResponse(code: string, message: string, status: number, deta
       error: {
         code,
         message,
-        ...(details && { details })
+        ...(details ? { details } : {})
       }
     } as ErrorResponse,
     { status }
@@ -117,9 +117,70 @@ async function validateAnnotationAccess(annotationId: string, documentId: string
   return null
 }
 
+type AnnotationUpdateData = z.infer<typeof annotationUpdateSchema>
+
+interface ValidatedPatchRequest {
+  user: { sub: string; orgId: string }
+  documentId: string
+  annotationId: string
+  updateData: AnnotationUpdateData
+}
+
+async function validatePatchRequest(request: NextRequest, params: Promise<{ id: string }>): Promise<ValidatedPatchRequest | NextResponse> {
+  const authResult = await authMiddleware()(request)
+  if (authResult instanceof NextResponse) {
+    return authResult
+  }
+
+  const { user } = authResult
+  const { id } = await params
+  const { searchParams } = new URL(request.url)
+  const annotationId = searchParams.get('annotationId')
+
+  if (!annotationId) {
+    return createErrorResponse('MISSING_ANNOTATION_ID', 'Annotation ID is required', 400)
+  }
+
+  try {
+    const body = await request.json()
+    const updateData = annotationUpdateSchema.parse(body)
+    return { user, documentId: id, annotationId, updateData }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
+    }
+    throw error
+  }
+}
+
+function prepareUpdateData(updateData: AnnotationUpdateData) {
+  return {
+    ...(updateData.content !== undefined && { content: updateData.content || null }),
+    ...(updateData.position && { position: updateData.position }),
+    ...(updateData.style !== undefined && { style: updateData.style || {} })
+  }
+}
+
+async function updateAnnotationWithIncludes(annotationId: string, updateData: AnnotationUpdateData) {
+  return prisma.documentAnnotation.update({
+    where: { id: annotationId },
+    data: prepareUpdateData(updateData),
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
+    }
+  })
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -127,7 +188,7 @@ export async function GET(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
   const { searchParams } = new URL(request.url)
   const page = searchParams.get('page')
 
@@ -173,7 +234,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -181,7 +242,7 @@ export async function POST(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     const body = await request.json()
@@ -198,7 +259,7 @@ export async function POST(
         documentId: id,
         userId: user.sub,
         type: annotationData.type,
-        content: annotationData.content,
+        content: annotationData.content || null,
         position: annotationData.position,
         style: annotationData.style || {}
       },
@@ -218,7 +279,7 @@ export async function POST(
 
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
     }
 
     return createErrorResponse('CREATE_FAILED', 'Failed to create annotation', 500)
@@ -227,60 +288,32 @@ export async function POST(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await authMiddleware()(request)
-  if (authResult instanceof NextResponse) {
-    return authResult
+  const validationResult = await validatePatchRequest(request, params)
+  if (validationResult instanceof NextResponse) {
+    return validationResult
   }
 
-  const { user } = authResult
-  const { id } = params
-  const { searchParams } = new URL(request.url)
-  const annotationId = searchParams.get('annotationId')
-
-  if (!annotationId) {
-    return createErrorResponse('MISSING_ANNOTATION_ID', 'Annotation ID is required', 400)
-  }
+  const { user, documentId, annotationId, updateData } = validationResult
 
   try {
-    const body = await request.json()
-    const updateData = annotationUpdateSchema.parse(body)
-
     // Check if annotation exists and user owns it
-    const annotationError = await validateAnnotationAccess(annotationId, id, user.sub)
+    const annotationError = await validateAnnotationAccess(annotationId, documentId, user.sub)
     if (annotationError) {
       return annotationError
     }
 
-    const annotation = await prisma.documentAnnotation.update({
-      where: { id: annotationId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      }
-    })
-
+    const annotation = await updateAnnotationWithIncludes(annotationId, updateData)
     return createSuccessResponse({ annotation })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
-    }
-
+  } catch {
     return createErrorResponse('UPDATE_FAILED', 'Failed to update annotation', 500)
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -288,7 +321,7 @@ export async function DELETE(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
   const { searchParams } = new URL(request.url)
   const annotationId = searchParams.get('annotationId')
 

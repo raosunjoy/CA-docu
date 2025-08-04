@@ -159,7 +159,7 @@ const FilePreview = ({ file, onRemove }: { file: File; onRemove: () => void }) =
     <Button
       type="button"
       variant="secondary"
-      size="small"
+      size="sm"
       onClick={onRemove}
     >
       Remove
@@ -367,7 +367,7 @@ const useUploadProcess = (
         try {
           const metadata = {
             name: file.name,
-            folderId,
+            ...(folderId && { folderId }),
             type: getDocumentType(file)
           }
 
@@ -599,7 +599,7 @@ export function DocumentUpload({
       />
 
       <UploadActions
-        onCancel={onCancel}
+        {...(onCancel && { onCancel })}
         onUpload={handleUpload}
         uploading={uploading}
         selectedFiles={selectedFiles}

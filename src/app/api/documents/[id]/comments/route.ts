@@ -51,7 +51,7 @@ function createErrorResponse(code: string, message: string, status: number, deta
       error: {
         code,
         message,
-        ...(details && { details })
+        ...(details ? { details } : {})
       }
     } as ErrorResponse,
     { status }
@@ -170,7 +170,7 @@ async function buildCommentTree(comments: CommentWithUser[]): Promise<CommentNod
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -178,7 +178,7 @@ export async function GET(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
   const { searchParams } = new URL(request.url)
   const includeReplies = searchParams.get('includeReplies') !== 'false'
 
@@ -223,7 +223,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -231,7 +231,7 @@ export async function POST(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     const body = await request.json()
@@ -256,7 +256,7 @@ export async function POST(
         documentId: id,
         userId: user.sub,
         content: commentData.content,
-        parentId: commentData.parentId
+        parentId: commentData.parentId || null
       },
       include: {
         user: {
@@ -286,7 +286,7 @@ export async function POST(
 
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
     }
 
     return createErrorResponse('CREATE_FAILED', 'Failed to create comment', 500)
@@ -295,7 +295,7 @@ export async function POST(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -303,7 +303,7 @@ export async function PATCH(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
   const { searchParams } = new URL(request.url)
   const commentId = searchParams.get('commentId')
 
@@ -339,7 +339,7 @@ export async function PATCH(
     return createSuccessResponse({ comment })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
     }
 
     return createErrorResponse('UPDATE_FAILED', 'Failed to update comment', 500)
@@ -348,7 +348,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -356,7 +356,7 @@ export async function DELETE(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
   const { searchParams } = new URL(request.url)
   const commentId = searchParams.get('commentId')
 

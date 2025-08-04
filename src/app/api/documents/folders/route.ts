@@ -81,7 +81,7 @@ function createErrorResponse(code: string, message: string, status: number, deta
       error: {
         code,
         message,
-        ...(details && { details })
+        ...(details ? { details } : {})
       }
     } as ErrorResponse,
     { status }
@@ -146,7 +146,7 @@ async function checkFolderNameConflict(
 
 function handlePostError(error: unknown): NextResponse {
   if (error instanceof z.ZodError) {
-    return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
+    return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
   }
 
   if (error instanceof Error && error.message === 'Parent folder not found') {
@@ -247,8 +247,8 @@ export async function POST(request: NextRequest) {
       data: {
         organizationId: user.orgId,
         name: folderData.name,
-        description: folderData.description,
-        parentId: folderData.parentId,
+        description: folderData.description || null,
+        parentId: folderData.parentId || null,
         path: folderPath,
         createdBy: user.sub
       },

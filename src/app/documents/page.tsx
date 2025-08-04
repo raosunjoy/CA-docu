@@ -67,7 +67,7 @@ const DocumentsPageContent = ({
   <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
     <div className="lg:col-span-1">
       <FolderTree
-        selectedFolderId={selectedFolder?.id}
+        {...(selectedFolder?.id && { selectedFolderId: selectedFolder.id })}
         onFolderSelect={onFolderSelect}
         editable={true}
       />
@@ -77,7 +77,7 @@ const DocumentsPageContent = ({
       {showUpload && (
         <div className="bg-white rounded-lg border p-6">
           <DocumentUpload
-            folderId={selectedFolder?.id}
+            {...(selectedFolder?.id && { folderId: selectedFolder.id })}
             onUploadComplete={onUploadComplete}
             onCancel={onUploadCancel}
           />
@@ -93,7 +93,7 @@ const DocumentsPageContent = ({
         
         <DocumentList
           key={refreshKey}
-          folderId={selectedFolder?.id}
+          {...(selectedFolder?.id && { folderId: selectedFolder.id })}
           onDocumentSelect={onDocumentSelect}
           showActions={true}
         />

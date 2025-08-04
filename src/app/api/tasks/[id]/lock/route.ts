@@ -80,7 +80,7 @@ async function unlockTask(taskId: string) {
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<LockResponse>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -89,7 +89,7 @@ export async function POST(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
 
     const existingTask = await getTaskWithLockInfo(taskId, user.orgId)
 
@@ -173,7 +173,7 @@ async function validateTaskUnlock(taskId: string, userId: string, organizationId
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<{ message: string }>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -182,7 +182,7 @@ export async function DELETE(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
 
     const validation = await validateTaskUnlock(taskId, user.sub, user.orgId)
     if (validation.error) {

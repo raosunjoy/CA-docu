@@ -41,7 +41,7 @@ function createErrorResponse(code: string, message: string, status: number, deta
       error: {
         code,
         message,
-        ...(details && { details })
+        ...(details ? { details } : {})
       }
     } as ErrorResponse,
     { status }
@@ -99,14 +99,14 @@ async function checkExistingShare(
 
 async function createDocumentShare(
   documentId: string,
-  shareData: { sharedWith?: string; shareType: string; permissions: string[]; expiresAt?: string },
+  shareData: { sharedWith?: string | undefined; shareType: string; permissions: string[]; expiresAt?: string | undefined },
   userId: string
 ) {
   return prisma.documentShare.create({
     data: {
       documentId,
       sharedBy: userId,
-      sharedWith: shareData.sharedWith,
+      sharedWith: shareData.sharedWith || null,
       shareType: shareData.shareType,
       permissions: shareData.permissions,
       expiresAt: shareData.expiresAt ? new Date(shareData.expiresAt) : null
@@ -134,7 +134,7 @@ async function createDocumentShare(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -142,7 +142,7 @@ export async function GET(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     // Check if document exists
@@ -184,7 +184,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -192,7 +192,7 @@ export async function POST(
   }
 
   const { user } = authResult
-  const { id } = params
+  const { id } = await params
 
   try {
     const body = await request.json()
@@ -229,7 +229,7 @@ export async function POST(
 
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.errors)
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
     }
 
     return createErrorResponse('SHARE_FAILED', 'Failed to share document', 500)

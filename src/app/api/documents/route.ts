@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
-import { DocumentType, DocumentStatus } from '@prisma/client'
+import { DocumentType, DocumentStatus } from '@/types'
 import { z } from 'zod'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
@@ -172,12 +172,12 @@ async function createDocumentRecord(params: CreateDocumentParams) {
       organizationId,
       name: metadata.name || file.name,
       originalName: file.name,
-      description: metadata.description,
+      description: metadata.description || null,
       filePath,
       fileSize,
       mimeType: file.type,
       type: metadata.type || documentType,
-      folderId: metadata.folderId,
+      folderId: metadata.folderId || null,
       uploadedBy: userId,
       status: DocumentStatus.ACTIVE
     },

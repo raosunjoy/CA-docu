@@ -177,7 +177,7 @@ const updateTaskSchema = z.object({
 // GET /api/tasks/[id] - Get single task
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<Task>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -186,7 +186,7 @@ export async function GET(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
 
     const task = await getTaskWithRelations(taskId, user.orgId)
     
@@ -416,7 +416,7 @@ async function performTaskValidations(
 // PUT /api/tasks/[id] - Update task
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<Task>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -425,7 +425,7 @@ export async function PUT(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
     const body = await request.json()
     const validatedData = updateTaskSchema.parse(body)
 
@@ -476,7 +476,7 @@ export async function PUT(
 // DELETE /api/tasks/[id] - Delete task
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<APIResponse<{ message: string }>>> {
   try {
     const authResult = await authMiddleware({})(request)
@@ -485,7 +485,7 @@ export async function DELETE(
     }
 
     const { user } = authResult
-    const taskId = context.params.id
+    const { id: taskId } = await context.params
 
     const validation = await validateTaskDeletion(taskId, user.orgId, user.sub)
     if (validation.error) {

@@ -94,7 +94,7 @@ const FolderActions = ({
     <div className="flex items-center space-x-1 ml-2">
       <Button
         variant="secondary"
-        size="small"
+        size="sm"
         onClick={onDelete}
         disabled={isDeleting || folder._count.documents > 0 || folder._count.children > 0}
         loading={isDeleting}
@@ -134,10 +134,10 @@ const FolderChildren = ({
         <FolderNode
           key={child.id}
           folder={child}
-          selectedId={selectedId}
+          {...(selectedId && { selectedId })}
           onSelect={onSelect}
-          onDelete={onDelete}
-          editable={editable}
+          {...(onDelete && { onDelete })}
+          {...(editable && { editable })}
           level={level + 1}
         />
       ))}
@@ -260,7 +260,7 @@ const FolderNode = ({
         folder={folder}
         isSelected={isSelected}
         isExpanded={isExpanded}
-        hasChildren={hasChildren}
+        hasChildren={hasChildren || false}
         editable={editable || false}
         level={level}
         onSelect={onSelect}
@@ -271,12 +271,12 @@ const FolderNode = ({
       
       <FolderChildren
         folder={folder}
-        hasChildren={hasChildren}
+        hasChildren={hasChildren || false}
         isExpanded={isExpanded}
-        selectedId={selectedId}
+        {...(selectedId && { selectedId })}
         onSelect={onSelect}
-        onDelete={onDelete}
-        editable={editable}
+        {...(onDelete && { onDelete })}
+        {...(editable && { editable })}
         level={level}
       />
     </div>
@@ -475,7 +475,7 @@ const FolderTreeHeader = ({
       {editable && (
         <Button
           variant="secondary"
-          size="small"
+          size="sm"
           onClick={onCreateFolder}
         >
           New Folder
@@ -511,7 +511,7 @@ const RootFolderOption = ({
     {editable && (
       <Button
         variant="secondary"
-        size="small"
+        size="sm"
         onClick={onCreateFolder}
         className="ml-auto"
       >
@@ -548,10 +548,10 @@ const FolderList = ({
         <FolderNode
           key={folder.id}
           folder={folder}
-          selectedId={selectedFolderId}
+          {...(selectedFolderId && { selectedId: selectedFolderId })}
           onSelect={onFolderSelect}
-          onDelete={onFolderDeleted}
-          editable={editable}
+          {...(onFolderDeleted && { onDelete: onFolderDeleted })}
+          {...(editable && { editable })}
         />
       ))}
     </div>
@@ -655,7 +655,7 @@ const FolderTreeBody = ({
 
     <FolderList
       folders={folders}
-      selectedFolderId={selectedFolderId}
+      {...(selectedFolderId && { selectedFolderId })}
       editable={editable}
       onFolderSelect={onFolderSelect}
       onFolderDeleted={handleFolderDeleted}
@@ -706,7 +706,7 @@ export function FolderTree({
 
       <FolderTreeBody
         error={error}
-        selectedFolderId={selectedFolderId}
+        {...(selectedFolderId && { selectedFolderId })}
         editable={editable}
         onFolderSelect={onFolderSelect}
         folders={folders}

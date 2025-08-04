@@ -295,7 +295,7 @@ const TaskFormFields = ({ formData, errors, handleInputChange, users }: {
   formData: TaskFormData
   errors: Record<string, string>
   handleInputChange: (field: keyof TaskFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
-  users: Array<{ id: string; firstName: string; lastName: string }>
+  users: Array<{ id: string; firstName: string; lastName: string; email: string }>
 }) => (
   <>
     <Input
