@@ -11,6 +11,11 @@ export type {
   TaskAttachment,
   Document,
   Email,
+  EmailAccount,
+  EmailFolder,
+  EmailAttachment,
+  EmailTemplate,
+  EmailSyncLog,
   ChatChannel,
   ChatChannelMember,
   ChatMessage,
@@ -34,7 +39,10 @@ export {
   ApprovalStatus,
   ApprovalDecision,
   TimeEntryStatus,
-  TimeEntryType
+  TimeEntryType,
+  EmailProvider,
+  EmailAccountStatus,
+  EmailSyncStatus
 } from '../../generated/prisma'
 
 // Additional types for API responses
@@ -414,12 +422,232 @@ export interface BaseComponentProps {
   className?: string
 }
 
+// Dashboard Types
+export type DashboardWidgetType = 
+  | 'task-overview'
+  | 'task-board'
+  | 'compliance-status'
+  | 'team-performance'
+  | 'workload-analytics'
+  | 'time-tracking'
+  | 'document-stats'
+  | 'email-stats'
+  | 'productivity-metrics'
+  | 'client-engagement'
+  | 'learning-progress'
+  | 'deadlines'
+  | 'notifications'
+  | 'quick-actions'
+  | 'analytics-chart'
+  | 'kpi-card'
+  | 'activity-feed'
+
 export interface DashboardWidgetConfig {
   id: string
-  type: string
+  type: DashboardWidgetType
+  title: string
   position: { x: number; y: number; w: number; h: number }
   config: Record<string, unknown>
   permissions: UserRole[]
+  refreshInterval?: number
+  isVisible: boolean
+  minSize?: { w: number; h: number }
+  maxSize?: { w: number; h: number }
+}
+
+export interface DashboardLayout {
+  id: string
+  name: string
+  description?: string
+  role?: UserRole
+  isDefault: boolean
+  widgets: DashboardWidgetConfig[]
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface DashboardTemplate {
+  id: string
+  name: string
+  description?: string
+  role: UserRole
+  widgets: Omit<DashboardWidgetConfig, 'id'>[]
+  isSystemTemplate: boolean
+  previewImage?: string
+}
+
+export interface DashboardMetrics {
+  // Task Metrics
+  totalTasks: number
+  completedTasks: number
+  overdueTasks: number
+  tasksInProgress: number
+  taskCompletionRate: number
+  averageTaskTime: number
+  
+  // Team Metrics
+  teamSize: number
+  activeMembers: number
+  teamUtilization: number
+  teamProductivity: number
+  
+  // Compliance Metrics
+  complianceScore: number
+  pendingCompliance: number
+  complianceDeadlines: number
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  
+  // Time Tracking Metrics
+  totalHours: number
+  billableHours: number
+  utilizationRate: number
+  averageHoursPerTask: number
+  
+  // Document Metrics
+  totalDocuments: number
+  documentsUploaded: number
+  documentsShared: number
+  storageUsed: number
+  
+  // Email Metrics
+  totalEmails: number
+  unreadEmails: number
+  emailsConverted: number
+  responseTime: number
+  
+  // Client Metrics
+  activeClients: number
+  clientSatisfaction: number
+  engagementProgress: number
+  pendingRequests: number
+}
+
+export interface AnalyticsData {
+  period: 'day' | 'week' | 'month' | 'quarter' | 'year'
+  startDate: Date
+  endDate: Date
+  data: Array<{
+    date: string
+    value: number
+    label?: string
+    metadata?: Record<string, any>
+  }>
+  trend: 'up' | 'down' | 'stable'
+  trendPercentage: number
+  comparison?: {
+    period: string
+    value: number
+    change: number
+  }
+}
+
+export interface KPIData {
+  id: string
+  name: string
+  value: number
+  target?: number
+  unit?: string
+  format?: 'number' | 'percentage' | 'currency' | 'time'
+  trend: 'up' | 'down' | 'stable'
+  trendPercentage: number
+  status: 'good' | 'warning' | 'critical'
+  description?: string
+  lastUpdated: Date
+}
+
+export interface ActivityFeedItem {
+  id: string
+  type: 'task' | 'document' | 'email' | 'approval' | 'comment' | 'system'
+  title: string
+  description?: string
+  userId: string
+  userName: string
+  userAvatar?: string
+  resourceId?: string
+  resourceType?: string
+  timestamp: Date
+  metadata?: Record<string, any>
+}
+
+export interface DashboardAlert {
+  id: string
+  type: 'info' | 'warning' | 'error' | 'success'
+  title: string
+  message: string
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  isRead: boolean
+  actionUrl?: string
+  actionLabel?: string
+  expiresAt?: Date
+  createdAt: Date
+}
+
+export interface DashboardFilter {
+  dateRange?: [Date, Date]
+  userId?: string
+  teamId?: string
+  clientId?: string
+  projectId?: string
+  tags?: string[]
+  status?: string[]
+  priority?: string[]
+}
+
+export interface DashboardExportConfig {
+  format: 'pdf' | 'excel' | 'csv' | 'png'
+  widgets: string[]
+  includeData: boolean
+  includeCharts: boolean
+  dateRange?: [Date, Date]
+  title?: string
+  description?: string
+}
+
+export interface DashboardShareConfig {
+  shareType: 'view' | 'edit' | 'admin'
+  expiresAt?: Date
+  password?: string
+  allowedUsers?: string[]
+  allowedRoles?: UserRole[]
+  isPublic: boolean
+}
+
+export interface ReportTemplate {
+  id: string
+  name: string
+  description?: string
+  category: string
+  reportType: 'dashboard' | 'analytics' | 'compliance' | 'financial'
+  config: Record<string, any>
+  schedule?: ReportSchedule
+  recipients?: string[]
+  isActive: boolean
+  createdBy: string
+  createdAt: Date
+}
+
+export interface ReportSchedule {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly'
+  dayOfWeek?: number
+  dayOfMonth?: number
+  time: string
+  timezone: string
+  isActive: boolean
+}
+
+export interface GeneratedReport {
+  id: string
+  templateId: string
+  name: string
+  format: 'pdf' | 'excel' | 'csv'
+  filePath: string
+  fileSize: number
+  generatedAt: Date
+  generatedBy: string
+  parameters: Record<string, any>
+  status: 'generating' | 'completed' | 'failed'
+  error?: string
 }
 
 export interface DashboardLayout {
@@ -577,6 +805,220 @@ export interface SmartTaskSuggestion {
   reasoning: string[]
   expiresAt?: Date
   status: 'pending' | 'accepted' | 'rejected' | 'expired'
+}
+
+// Email Integration Types
+export interface EmailAccountData {
+  provider: EmailProvider
+  email: string
+  displayName?: string
+  accessToken?: string
+  refreshToken?: string
+  tokenExpiresAt?: Date
+  imapHost?: string
+  imapPort?: number
+  smtpHost?: string
+  smtpPort?: number
+  username?: string
+  password?: string
+  isDefault?: boolean
+  syncEnabled?: boolean
+  syncFolders?: string[]
+  maxSyncDays?: number
+}
+
+export interface EmailAccountUpdateData {
+  displayName?: string
+  isDefault?: boolean
+  syncEnabled?: boolean
+  syncFolders?: string[]
+  maxSyncDays?: number
+  status?: EmailAccountStatus
+}
+
+export interface EmailFilters {
+  accountId?: string
+  folderId?: string
+  isRead?: boolean
+  isStarred?: boolean
+  isArchived?: boolean
+  fromAddress?: string
+  subject?: string
+  dateRange?: [Date, Date]
+  hasAttachments?: boolean
+  labels?: string[]
+  linkedToTasks?: boolean
+}
+
+export interface EmailSearchFilters extends EmailFilters {
+  query?: string
+  searchIn?: ('subject' | 'body' | 'from' | 'to')[]
+  sortBy?: 'receivedAt' | 'sentAt' | 'subject' | 'fromAddress'
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface EmailData {
+  accountId: string
+  folderId?: string
+  externalId: string
+  threadId?: string
+  messageId?: string
+  subject?: string
+  fromAddress: string
+  fromName?: string
+  toAddresses: string[]
+  toNames?: string[]
+  ccAddresses?: string[]
+  ccNames?: string[]
+  bccAddresses?: string[]
+  bccNames?: string[]
+  bodyText?: string
+  bodyHtml?: string
+  snippet?: string
+  importance?: string
+  priority?: string
+  sentAt?: Date
+  receivedAt: Date
+  attachments?: EmailAttachmentData[]
+}
+
+export interface EmailAttachmentData {
+  filename: string
+  contentType: string
+  size: number
+  contentId?: string
+  isInline?: boolean
+  downloadUrl?: string
+}
+
+export interface EmailTemplateData {
+  name: string
+  description?: string
+  category?: string
+  subject: string
+  bodyHtml: string
+  bodyText?: string
+  variables?: EmailTemplateVariable[]
+  isShared?: boolean
+}
+
+export interface EmailTemplateVariable {
+  name: string
+  label: string
+  type: 'text' | 'number' | 'date' | 'boolean' | 'select'
+  required?: boolean
+  defaultValue?: any
+  options?: string[] // For select type
+}
+
+export interface EmailCompositionData {
+  accountId: string
+  templateId?: string
+  to: string[]
+  cc?: string[]
+  bcc?: string[]
+  subject: string
+  bodyHtml: string
+  bodyText?: string
+  attachments?: File[]
+  taskAttachments?: string[] // Task IDs
+  documentAttachments?: string[] // Document IDs
+  scheduledAt?: Date
+  importance?: string
+  priority?: string
+}
+
+export interface EmailToTaskData {
+  emailId: string
+  title: string
+  description?: string
+  priority?: TaskPriority
+  assignedTo?: string
+  dueDate?: Date
+  tags?: string[]
+  includeAttachments?: boolean
+}
+
+export interface EmailSyncResult {
+  accountId: string
+  success: boolean
+  emailsProcessed: number
+  emailsAdded: number
+  emailsUpdated: number
+  emailsDeleted: number
+  errorsCount: number
+  error?: string
+  startedAt: Date
+  completedAt?: Date
+}
+
+export interface EmailFolderData {
+  accountId: string
+  name: string
+  displayName?: string
+  externalId?: string
+  parentId?: string
+  type?: string
+}
+
+export interface EmailAccountCredentials {
+  provider: EmailProvider
+  email: string
+  // OAuth2 credentials
+  accessToken?: string
+  refreshToken?: string
+  authCode?: string
+  // IMAP/SMTP credentials
+  password?: string
+  imapHost?: string
+  imapPort?: number
+  smtpHost?: string
+  smtpPort?: number
+  username?: string
+}
+
+export interface EmailProviderConfig {
+  provider: EmailProvider
+  displayName: string
+  authUrl?: string
+  scopes?: string[]
+  imapDefaults?: {
+    host: string
+    port: number
+    secure: boolean
+  }
+  smtpDefaults?: {
+    host: string
+    port: number
+    secure: boolean
+  }
+}
+
+export interface EmailSyncConfig {
+  enabled: boolean
+  folders: string[]
+  maxDays: number
+  syncInterval: number // minutes
+  batchSize: number
+}
+
+export interface EmailAnalytics {
+  totalEmails: number
+  unreadEmails: number
+  emailsToday: number
+  emailsThisWeek: number
+  emailsThisMonth: number
+  topSenders: Array<{
+    address: string
+    name?: string
+    count: number
+  }>
+  responseTime: {
+    average: number // hours
+    median: number
+  }
+  emailsWithTasks: number
+  emailsWithDocuments: number
 }
 
 // Utility types

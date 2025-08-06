@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { User, Task, Document, Organization } from '@/types'
+import { User, Task, Document, Organization, Tag, Tagging, UserRole, TaskStatus, TaskPriority, DocumentStatus } from '@/types'
 
 // Seed faker for consistent test data
 faker.seed(123)
@@ -9,10 +9,13 @@ export class TestDataGenerator {
     return {
       id: faker.string.uuid(),
       email: faker.internet.email(),
-      name: faker.person.fullName(),
-      role: faker.helpers.arrayElement(['PARTNER', 'MANAGER', 'ASSOCIATE', 'INTERN']),
+      firstName: faker.person.firstName(),
+      lastName: faker.person.lastName(),
+      passwordHash: faker.internet.password(),
+      role: faker.helpers.arrayElement(['PARTNER', 'MANAGER', 'ASSOCIATE', 'INTERN'] as UserRole[]),
       organizationId: faker.string.uuid(),
       isActive: faker.datatype.boolean(),
+      lastLoginAt: faker.date.recent(),
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
       ...overrides,
@@ -24,16 +27,31 @@ export class TestDataGenerator {
       id: faker.string.uuid(),
       title: faker.lorem.sentence(),
       description: faker.lorem.paragraph(),
-      status: faker.helpers.arrayElement(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'COMPLETED']),
-      priority: faker.helpers.arrayElement(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
+      status: faker.helpers.arrayElement(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'COMPLETED'] as TaskStatus[]),
+      priority: faker.helpers.arrayElement(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as TaskPriority[]),
       organizationId: faker.string.uuid(),
       createdBy: faker.string.uuid(),
       assignedTo: faker.string.uuid(),
+      parentTaskId: null,
+      dueDate: faker.date.future(),
+      completedAt: null,
+      lockedAt: null,
+      lockedBy: null,
+      estimatedHours: faker.number.int({ min: 1, max: 40 }),
+      actualHours: null,
+      requiresApproval: false,
+      approvalStatus: null,
+      currentApprovalStep: null,
+      isRecurring: false,
+      recurringTaskId: null,
+      instanceNumber: null,
+      isAutoAssigned: false,
+      autoAssignmentReason: null,
+      escalationLevel: 0,
+      lastEscalatedAt: null,
+      metadata: {},
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
-      dueDate: faker.date.future(),
-      tags: faker.helpers.arrayElements(['audit', 'tax', 'compliance', 'review'], { min: 0, max: 3 }),
-      comments: [],
       ...overrides,
     }
   }
@@ -44,7 +62,11 @@ export class TestDataGenerator {
       id: faker.string.uuid(),
       name: fileName,
       originalName: fileName,
+      description: faker.lorem.sentence(),
       filePath: `/uploads/${fileName}`,
+      localPath: null,
+      cloudPath: null,
+      thumbnailPath: null,
       fileSize: faker.number.int({ min: 1024, max: 10485760 }), // 1KB to 10MB
       mimeType: faker.helpers.arrayElement([
         'application/pdf',
@@ -53,13 +75,21 @@ export class TestDataGenerator {
         'image/jpeg',
         'image/png'
       ]),
+      checksum: faker.string.alphanumeric(32),
+      type: faker.helpers.arrayElement(['PDF', 'WORD', 'EXCEL', 'IMAGE', 'OTHER']),
+      status: faker.helpers.arrayElement(['DRAFT', 'ACTIVE', 'ARCHIVED', 'DELETED'] as DocumentStatus[]),
+      version: 1,
+      parentDocumentId: null,
+      folderId: null,
       organizationId: faker.string.uuid(),
       uploadedBy: faker.string.uuid(),
       uploadedAt: faker.date.past(),
+      lastAccessedAt: faker.date.recent(),
+      extractedText: faker.lorem.paragraphs(3),
+      metadata: {},
+      isDeleted: false,
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
-      isDeleted: false,
-      tags: faker.helpers.arrayElements(['client-docs', 'financial', 'legal', 'internal'], { min: 0, max: 2 }),
       ...overrides,
     }
   }
@@ -69,7 +99,7 @@ export class TestDataGenerator {
     return {
       id: faker.string.uuid(),
       name: `${companyName} CA Firm`,
-      domain: faker.internet.domainName(),
+      subdomain: faker.internet.domainWord(),
       settings: {
         timezone: 'Asia/Kolkata',
         currency: 'INR',
@@ -77,6 +107,37 @@ export class TestDataGenerator {
       },
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
+      ...overrides,
+    }
+  }
+
+  static generateTag(overrides: Partial<Tag> = {}): Tag {
+    return {
+      id: faker.string.uuid(),
+      organizationId: faker.string.uuid(),
+      name: faker.helpers.arrayElement([
+        'Audit', 'Tax Filing', 'Compliance', 'Review', 'Client Meeting',
+        'Documentation', 'Financial Analysis', 'Legal', 'Internal',
+        'High Priority', 'Urgent', 'Quarterly', 'Annual'
+      ]),
+      parentId: null,
+      color: faker.internet.color(),
+      description: faker.lorem.sentence(),
+      createdBy: faker.string.uuid(),
+      createdAt: faker.date.past(),
+      updatedAt: faker.date.recent(),
+      ...overrides,
+    }
+  }
+
+  static generateTagging(overrides: Partial<Tagging> = {}): Tagging {
+    return {
+      id: faker.string.uuid(),
+      tagId: faker.string.uuid(),
+      taggableType: faker.helpers.arrayElement(['task', 'document', 'email', 'chat_channel']),
+      taggableId: faker.string.uuid(),
+      taggedBy: faker.string.uuid(),
+      createdAt: faker.date.past(),
       ...overrides,
     }
   }
@@ -92,6 +153,14 @@ export class TestDataGenerator {
 
   static generateDocuments(count: number, overrides: Partial<Document> = {}): Document[] {
     return Array.from({ length: count }, () => this.generateDocument(overrides))
+  }
+
+  static generateTags(count: number, overrides: Partial<Tag> = {}): Tag[] {
+    return Array.from({ length: count }, () => this.generateTag(overrides))
+  }
+
+  static generateTaggings(count: number, overrides: Partial<Tagging> = {}): Tagging[] {
+    return Array.from({ length: count }, () => this.generateTagging(overrides))
   }
 
   // Generate related data sets
@@ -111,100 +180,131 @@ export class TestDataGenerator {
   }
 
   // Generate test scenarios
-  static generateAuditWorkflow(): { tasks: Task[]; documents: Document[] } {
+  static generateAuditWorkflow(): { tasks: Task[]; documents: Document[]; tags: Tag[] } {
     const organizationId = faker.string.uuid()
+    
+    // Create tags first
+    const auditTags = [
+      this.generateTag({ name: 'Audit', organizationId }),
+      this.generateTag({ name: 'Client Meeting', organizationId }),
+      this.generateTag({ name: 'Documentation', organizationId }),
+      this.generateTag({ name: 'Financial Review', organizationId }),
+      this.generateTag({ name: 'Reporting', organizationId })
+    ]
+
     const auditTasks = [
       this.generateTask({
         title: 'Initial Client Meeting',
         status: 'COMPLETED',
-        organizationId,
-        tags: ['audit', 'client-meeting']
+        organizationId
       }),
       this.generateTask({
         title: 'Document Collection',
         status: 'IN_PROGRESS',
-        organizationId,
-        tags: ['audit', 'documentation']
+        organizationId
       }),
       this.generateTask({
         title: 'Financial Statement Review',
         status: 'TODO',
-        organizationId,
-        tags: ['audit', 'financial-review']
+        organizationId
       }),
       this.generateTask({
         title: 'Audit Report Preparation',
         status: 'TODO',
-        organizationId,
-        tags: ['audit', 'reporting']
+        organizationId
       })
     ]
 
     const auditDocuments = [
       this.generateDocument({
         name: 'Balance Sheet.pdf',
-        organizationId,
-        tags: ['audit', 'financial-statements']
+        organizationId
       }),
       this.generateDocument({
         name: 'Profit & Loss Statement.pdf',
-        organizationId,
-        tags: ['audit', 'financial-statements']
+        organizationId
       }),
       this.generateDocument({
         name: 'Bank Statements.pdf',
-        organizationId,
-        tags: ['audit', 'bank-records']
+        organizationId
       })
     ]
 
-    return { tasks: auditTasks, documents: auditDocuments }
+    return { tasks: auditTasks, documents: auditDocuments, tags: auditTags }
   }
 
-  static generateTaxFilingWorkflow(): { tasks: Task[]; documents: Document[] } {
+  static generateTaxFilingWorkflow(): { tasks: Task[]; documents: Document[]; tags: Tag[] } {
     const organizationId = faker.string.uuid()
+    
+    // Create tags first
+    const taxTags = [
+      this.generateTag({ name: 'Tax Filing', organizationId }),
+      this.generateTag({ name: 'Documentation', organizationId }),
+      this.generateTag({ name: 'ITR', organizationId }),
+      this.generateTag({ name: 'Submission', organizationId })
+    ]
+
     const taxTasks = [
       this.generateTask({
         title: 'Collect Tax Documents',
         status: 'COMPLETED',
-        organizationId,
-        tags: ['tax-filing', 'documentation']
+        organizationId
       }),
       this.generateTask({
         title: 'Prepare ITR Forms',
         status: 'IN_PROGRESS',
-        organizationId,
-        tags: ['tax-filing', 'itr']
+        organizationId
       }),
       this.generateTask({
         title: 'Review and File Returns',
         status: 'TODO',
-        organizationId,
-        tags: ['tax-filing', 'submission']
+        organizationId
       })
     ]
 
     const taxDocuments = [
       this.generateDocument({
         name: 'Form 16.pdf',
-        organizationId,
-        tags: ['tax-filing', 'form-16']
+        organizationId
       }),
       this.generateDocument({
         name: 'Investment Proofs.pdf',
-        organizationId,
-        tags: ['tax-filing', 'investments']
+        organizationId
       }),
       this.generateDocument({
         name: 'ITR Draft.pdf',
-        organizationId,
-        tags: ['tax-filing', 'itr-draft']
+        organizationId
       })
     ]
 
-    return { tasks: taxTasks, documents: taxDocuments }
+    return { tasks: taxTasks, documents: taxDocuments, tags: taxTags }
   }
 }
 
 // Install faker if not already installed
 // npm install --save-dev @faker-js/faker
+
+// Simple mock functions for backward compatibility
+export function createMockUser(overrides: Partial<User> = {}): User {
+  return TestDataGenerator.generateUser(overrides)
+}
+
+export function createMockOrganization(overrides: Partial<Organization> = {}): Organization {
+  return TestDataGenerator.generateOrganization(overrides)
+}
+
+export function createMockTask(overrides: Partial<Task> = {}): Task {
+  return TestDataGenerator.generateTask(overrides)
+}
+
+export function createMockDocument(overrides: Partial<Document> = {}): Document {
+  return TestDataGenerator.generateDocument(overrides)
+}
+
+export function createMockTag(overrides: Partial<Tag> = {}): Tag {
+  return TestDataGenerator.generateTag(overrides)
+}
+
+export function createMockTagging(overrides: Partial<Tagging> = {}): Tagging {
+  return TestDataGenerator.generateTagging(overrides)
+}

@@ -103,7 +103,9 @@ model Organization {
   tasks      Task[]
   documents  Document[]
   documentFolders DocumentFolder[]
+  emailAccounts EmailAccount[]
   emails     Email[]
+  emailTemplates EmailTemplate[]
   chatChannels ChatChannel[]
   auditLogs  AuditLog[]
   
@@ -152,9 +154,10 @@ model User {
   lockedTasks       Task[]         @relation("TaskLocker")
   uploadedDocuments Document[]     @relation("DocumentUploader")
   createdTags       Tag[]          @relation("TagCreator")
-  emails            Email[]        @relation("EmailOwner")
+  emailAccounts     EmailAccount[] @relation("EmailAccounts")
   sentMessages      ChatMessage[]  @relation("MessageSender")
   createdChannels   ChatChannel[]  @relation("ChannelCreator")
+  uploadedChatFiles ChatFile[]     @relation("ChatFileUploader")
   taggedBy          Tagging[]      @relation("TaggerUser")
   auditLogs         AuditLog[]     @relation("AuditUser")
   syncStatus        SyncStatus[]
@@ -193,6 +196,12 @@ model User {
   workloadMetrics        WorkloadMetric[] @relation("WorkloadMetrics")
   createdEscalationRules EscalationRule[] @relation("EscalationRuleCreator")
   taskSuggestions        TaskSuggestion[] @relation("TaskSuggestions")
+  createdEmailTemplates  EmailTemplate[]  @relation("EmailTemplateCreator")
+  
+  // Notification relations
+  notifications          Notification[]   @relation("UserNotifications")
+  notificationPreferences NotificationPreferences? @relation("UserNotificationPreferences")
+  pushSubscriptions      PushSubscription[] @relation("UserPushSubscriptions")
 
   @@index([organizationId])
   @@index([email])
@@ -391,33 +400,282 @@ model Document {
   @@map("documents")
 }
 
-// Email Integration
-model Email {
-  id           String   @id @default(cuid())
+// Email Integration System
+
+// Email Provider Enum
+enum EmailProvider {
+  GMAIL
+  OUTLOOK
+  EXCHANGE
+  IMAP
+}
+
+// Email Account Status Enum
+enum EmailAccountStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  EXPIRED
+  REVOKED
+}
+
+// Email Sync Status Enum
+enum EmailSyncStatus {
+  IDLE
+  SYNCING
+  ERROR
+  PAUSED
+}
+
+// Email Account Model
+model EmailAccount {
+  id             String             @id @default(cuid())
   organizationId String
-  externalId   String   @unique
-  threadId     String?
-  subject      String?
-  fromAddress  String
-  toAddresses  String[]
-  ccAddresses  String[]
-  bccAddresses String[]
-  bodyText     String?
-  bodyHtml     String?
-  receivedAt   DateTime
-  syncedAt     DateTime @default(now())
-  userId       String
-  createdAt    DateTime @default(now())
+  userId         String
+  provider       EmailProvider
+  email          String
+  displayName    String?
+  
+  // OAuth2 credentials
+  accessToken    String?            // Encrypted
+  refreshToken   String?            // Encrypted
+  tokenExpiresAt DateTime?
+  
+  // IMAP/SMTP credentials (encrypted)
+  imapHost       String?
+  imapPort       Int?
+  smtpHost       String?
+  smtpPort       Int?
+  username       String?
+  password       String?            // Encrypted
+  
+  // Account settings
+  isDefault      Boolean            @default(false)
+  status         EmailAccountStatus @default(ACTIVE)
+  syncStatus     EmailSyncStatus    @default(IDLE)
+  lastSyncAt     DateTime?
+  syncError      String?
+  
+  // Sync configuration
+  syncEnabled    Boolean            @default(true)
+  syncFolders    String[]           @default(["INBOX"])
+  maxSyncDays    Int                @default(30)
+  
+  // Metadata
+  metadata       Json               @default("{}")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation("EmailOwner", fields: [userId], references: [id])
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User               @relation("EmailAccounts", fields: [userId], references: [id])
+  emails         Email[]
+  emailFolders   EmailFolder[]
+  emailTemplates EmailTemplate[]
 
+  @@unique([userId, email])
   @@index([organizationId])
   @@index([userId])
+  @@index([provider])
+  @@index([status])
+  @@map("email_accounts")
+}
+
+// Email Folder Model
+model EmailFolder {
+  id             String       @id @default(cuid())
+  accountId      String
+  name           String
+  displayName    String?
+  externalId     String?      // Provider-specific folder ID
+  parentId       String?
+  path           String       // Full folder path
+  type           String       @default("custom") // inbox, sent, drafts, trash, spam, custom
+  unreadCount    Int          @default(0)
+  totalCount     Int          @default(0)
+  isSelectable   Boolean      @default(true)
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  account        EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  parent         EmailFolder? @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children       EmailFolder[] @relation("FolderHierarchy")
+  emails         Email[]
+
+  @@unique([accountId, externalId])
+  @@index([accountId])
+  @@index([parentId])
+  @@index([type])
+  @@map("email_folders")
+}
+
+// Enhanced Email Model
+model Email {
+  id             String        @id @default(cuid())
+  organizationId String
+  accountId      String
+  folderId       String?
+  
+  // Email identifiers
+  externalId     String        // Provider-specific message ID
+  threadId       String?       // Conversation thread ID
+  messageId      String?       // RFC 2822 Message-ID
+  inReplyTo      String?       // In-Reply-To header
+  references     String[]      // References header
+  
+  // Email content
+  subject        String?
+  fromAddress    String
+  fromName       String?
+  toAddresses    String[]
+  toNames        String[]
+  ccAddresses    String[]
+  ccNames        String[]
+  bccAddresses   String[]
+  bccNames       String[]
+  replyToAddress String?
+  bodyText       String?
+  bodyHtml       String?
+  snippet        String?       // Email preview text
+  
+  // Email metadata
+  importance     String        @default("normal") // low, normal, high
+  priority       String        @default("normal") // low, normal, high
+  sensitivity    String        @default("normal") // normal, personal, private, confidential
+  size           Int?          // Email size in bytes
+  
+  // Flags and status
+  isRead         Boolean       @default(false)
+  isStarred      Boolean       @default(false)
+  isFlagged      Boolean       @default(false)
+  isArchived     Boolean       @default(false)
+  isDeleted      Boolean       @default(false)
+  isDraft        Boolean       @default(false)
+  isSent         Boolean       @default(false)
+  
+  // Labels and categories
+  labels         String[]      @default([])
+  categories     String[]      @default([])
+  
+  // Integration
+  linkedTaskIds  String[]      @default([])
+  linkedDocIds   String[]      @default([])
+  
+  // Timestamps
+  sentAt         DateTime?
+  receivedAt     DateTime
+  syncedAt       DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account        EmailAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  folder         EmailFolder?  @relation(fields: [folderId], references: [id])
+  attachments    EmailAttachment[]
+  
+  @@unique([accountId, externalId])
+  @@index([organizationId])
+  @@index([accountId])
+  @@index([folderId])
+  @@index([threadId])
   @@index([receivedAt])
-  @@index([externalId])
+  @@index([isRead])
+  @@index([isDeleted])
+  @@index([linkedTaskIds])
   @@map("emails")
+}
+
+// Email Attachment Model
+model EmailAttachment {
+  id             String   @id @default(cuid())
+  emailId        String
+  filename       String
+  contentType    String
+  size           Int
+  contentId      String?  // For inline attachments
+  isInline       Boolean  @default(false)
+  downloadUrl    String?  // Temporary download URL
+  filePath       String?  // Local file path if downloaded
+  checksum       String?  // File integrity check
+  createdAt      DateTime @default(now())
+
+  // Relations
+  email          Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([emailId])
+  @@index([contentId])
+  @@map("email_attachments")
+}
+
+// Email Template Model
+model EmailTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  accountId      String?      // Optional: template specific to account
+  name           String
+  description    String?
+  category       String?      // e.g., 'client_communication', 'internal', 'compliance'
+  
+  // Template content
+  subject        String
+  bodyHtml       String
+  bodyText       String?
+  
+  // Template variables
+  variables      Json         @default("[]") // Array of variable definitions
+  
+  // Settings
+  isShared       Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  usageCount     Int          @default(0)
+  
+  // Metadata
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account        EmailAccount? @relation(fields: [accountId], references: [id])
+  creator        User         @relation("EmailTemplateCreator", fields: [createdBy], references: [id])
+
+  @@index([organizationId])
+  @@index([accountId])
+  @@index([category])
+  @@index([isActive])
+  @@map("email_templates")
+}
+
+// Email Sync Log Model
+model EmailSyncLog {
+  id             String          @id @default(cuid())
+  accountId      String
+  syncType       String          // 'full', 'incremental', 'folder'
+  status         String          // 'started', 'completed', 'failed'
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+  
+  // Sync statistics
+  emailsProcessed Int            @default(0)
+  emailsAdded    Int             @default(0)
+  emailsUpdated  Int             @default(0)
+  emailsDeleted  Int             @default(0)
+  errorsCount    Int             @default(0)
+  
+  // Error details
+  error          String?
+  errorDetails   Json?
+  
+  // Sync metadata
+  metadata       Json            @default("{}")
+
+  @@index([accountId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("email_sync_logs")
 }
 
 // Chat System
@@ -436,6 +694,7 @@ model ChatChannel {
   creator      User         @relation("ChannelCreator", fields: [createdBy], references: [id])
   messages     ChatMessage[]
   members      ChatChannelMember[]
+  files        ChatFile[]
 
   @@index([organizationId])
   @@map("chat_channels")
@@ -478,6 +737,30 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+// Chat File Model
+model ChatFile {
+  id           String   @id @default(cuid())
+  channelId    String
+  uploadedBy   String
+  originalName String
+  fileName     String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  caption      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  uploader  User        @relation("ChatFileUploader", fields: [uploadedBy], references: [id])
+
+  @@index([channelId])
+  @@index([uploadedBy])
+  @@index([createdAt])
+  @@map("chat_files")
+}
+
 // Polymorphic Tagging System
 model Tagging {
   id           String @id @default(cuid())
@@ -498,6 +781,60 @@ model Tagging {
   @@index([tagId])
   @@index([taggableType, taggableId])
   @@map("taggings")
+}
+
+// Notification System
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // 'chat_mention', 'direct_message', 'task_update', etc.
+  title     String
+  message   String
+  data      Json     @default("{}")
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreferences {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation("UserNotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model PushSubscription {
+  id       String @id @default(cuid())
+  userId   String
+  endpoint String
+  keys     Json   // Contains p256dh and auth keys
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // Audit Trail
