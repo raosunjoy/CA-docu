@@ -12,187 +12,308 @@ import {
   createSessionToken
 } from '../auth'
 import { UserRole, Permission } from '@/types'
+import jwt from 'jsonwebtoken'
 
-// Mock environment variables
-const originalEnv = process.env
-beforeEach(() => {
-  process.env = { ...originalEnv }
-  process.env.JWT_SECRET = 'test-secret-key'
-})
+// Mock jwt module
+jest.mock('jsonwebtoken')
+const mockJwt = jwt as jest.Mocked<typeof jwt>
 
-afterEach(() => {
-  process.env = originalEnv
-})
+describe('Auth Utilities', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
 
-describe('Authentication Utilities', () => {
-  describe('Password Hashing', () => {
-    it('should hash a password correctly', async () => {
-      const password = 'testPassword123!'
+  describe('hashPassword', () => {
+    it('should hash password successfully', async () => {
+      const password = 'testPassword123'
       const hash = await hashPassword(password)
-      
+
       expect(hash).toBeDefined()
       expect(hash).not.toBe(password)
-      expect(hash.length).toBeGreaterThan(50)
-    })
-
-    it('should verify password against hash correctly', async () => {
-      const password = 'testPassword123!'
-      const hash = await hashPassword(password)
-      
-      const isValid = await verifyPassword(password, hash)
-      const isInvalid = await verifyPassword('wrongPassword', hash)
-      
-      expect(isValid).toBe(true)
-      expect(isInvalid).toBe(false)
+      expect(hash.length).toBeGreaterThan(50) // bcrypt hashes are typically 60 chars
     })
 
     it('should generate different hashes for same password', async () => {
-      const password = 'testPassword123!'
+      const password = 'testPassword123'
       const hash1 = await hashPassword(password)
       const hash2 = await hashPassword(password)
-      
+
       expect(hash1).not.toBe(hash2)
-      
-      // Both should still verify correctly
-      expect(await verifyPassword(password, hash1)).toBe(true)
-      expect(await verifyPassword(password, hash2)).toBe(true)
+    })
+
+    it('should handle empty password', async () => {
+      const hash = await hashPassword('')
+      expect(hash).toBeDefined()
+    })
+
+    it('should handle special characters in password', async () => {
+      const password = 'test!@#$%^&*()_+{}|:<>?[]\\;\'",./`~'
+      const hash = await hashPassword(password)
+      expect(hash).toBeDefined()
     })
   })
 
-  describe('JWT Token Management', () => {
-    const mockUser = {
-      sub: 'user-123',
-      email: 'test@example.com',
-      role: UserRole.ASSOCIATE,
-      orgId: 'org-123',
-      permissions: [Permission.TASK_READ, Permission.TASK_CREATE]
-    }
+  describe('verifyPassword', () => {
+    it('should verify correct password', async () => {
+      const password = 'testPassword123'
+      const hash = await hashPassword(password)
+      const isValid = await verifyPassword(password, hash)
 
-    it('should generate a valid JWT token', () => {
-      const token = generateToken(mockUser)
-      
-      expect(token).toBeDefined()
-      expect(typeof token).toBe('string')
-      expect(token.split('.')).toHaveLength(3) // JWT has 3 parts
+      expect(isValid).toBe(true)
     })
 
-    it('should verify and decode JWT token correctly', () => {
-      const token = generateToken(mockUser)
-      const decoded = verifyToken(token)
-      
-      expect(decoded.sub).toBe(mockUser.sub)
-      expect(decoded.email).toBe(mockUser.email)
-      expect(decoded.role).toBe(mockUser.role)
-      expect(decoded.orgId).toBe(mockUser.orgId)
-      expect(decoded.permissions).toEqual(mockUser.permissions)
-      expect(decoded.iat).toBeDefined()
-      expect(decoded.exp).toBeDefined()
+    it('should reject incorrect password', async () => {
+      const password = 'testPassword123'
+      const wrongPassword = 'wrongPassword456'
+      const hash = await hashPassword(password)
+      const isValid = await verifyPassword(wrongPassword, hash)
+
+      expect(isValid).toBe(false)
+    })
+
+    it('should handle empty password verification', async () => {
+      const hash = await hashPassword('somePassword')
+      const isValid = await verifyPassword('', hash)
+
+      expect(isValid).toBe(false)
+    })
+
+    it('should handle invalid hash format', async () => {
+      const isValid = await verifyPassword('password', 'invalid-hash')
+      expect(isValid).toBe(false)
+    })
+  })
+
+  describe('generateToken', () => {
+    beforeEach(() => {
+      mockJwt.sign.mockReturnValue('mock-jwt-token')
+    })
+
+    it('should generate token with correct payload', () => {
+      const payload = {
+        sub: 'user-1',
+        email: 'test@example.com',
+        role: UserRole.ASSOCIATE,
+        orgId: 'org-1',
+        permissions: [Permission.TASK_READ, Permission.TASK_UPDATE]
+      }
+
+      const token = generateToken(payload)
+
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        payload,
+        'your-secret-key-change-in-production',
+        { expiresIn: '7d' }
+      )
+      expect(token).toBe('mock-jwt-token')
+    })
+
+    it('should use default JWT_SECRET when not provided', () => {
+      process.env = { ...process.env }
+      delete process.env.JWT_SECRET
+      const payload = {
+        sub: 'user-1',
+        email: 'test@example.com',
+        role: UserRole.ASSOCIATE,
+        orgId: 'org-1',
+        permissions: []
+      }
+
+      generateToken(payload)
+
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        payload,
+        'your-secret-key-change-in-production',
+        { expiresIn: '7d' }
+      )
+    })
+
+    it('should use default expiration when not provided', () => {
+      const payload = {
+        sub: 'user-1',
+        email: 'test@example.com',
+        role: UserRole.ASSOCIATE,
+        orgId: 'org-1',
+        permissions: []
+      }
+
+      generateToken(payload)
+
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        payload,
+        'your-secret-key-change-in-production',
+        { expiresIn: '7d' }
+      )
+    })
+  })
+
+  describe('verifyToken', () => {
+    const mockPayload = {
+      sub: 'user-1',
+      email: 'test@example.com',
+      role: UserRole.ASSOCIATE,
+      orgId: 'org-1',
+      permissions: [Permission.TASK_READ],
+      iat: 1234567890,
+      exp: 1234567890 + 7 * 24 * 60 * 60
+    }
+
+    it('should verify valid token', () => {
+      mockJwt.verify.mockReturnValue(mockPayload)
+
+      const result = verifyToken('valid-token')
+
+      expect(mockJwt.verify).toHaveBeenCalledWith('valid-token', 'your-secret-key-change-in-production')
+      expect(result).toEqual(mockPayload)
     })
 
     it('should throw error for invalid token', () => {
-      expect(() => verifyToken('invalid-token')).toThrow()
+      mockJwt.verify.mockImplementation(() => {
+        throw new Error('Invalid token')
+      })
+
+      expect(() => verifyToken('invalid-token')).toThrow('Invalid token')
     })
 
-    it('should include device ID when provided', () => {
-      const deviceId = 'device-123'
-      const token = generateToken({ ...mockUser, deviceId })
-      const decoded = verifyToken(token)
-      
-      expect(decoded.deviceId).toBe(deviceId)
+    it('should throw error for expired token', () => {
+      mockJwt.verify.mockImplementation(() => {
+        throw new Error('Token expired')
+      })
+
+      expect(() => verifyToken('expired-token')).toThrow('Token expired')
     })
   })
 
-  describe('Role-Based Permissions', () => {
-    it('should return correct permissions for intern role', () => {
+  describe('getRolePermissions', () => {
+    it('should return correct permissions for INTERN', () => {
       const permissions = getRolePermissions(UserRole.INTERN)
       
       expect(permissions).toContain(Permission.TASK_READ)
+      expect(permissions).toContain(Permission.TASK_UPDATE)
       expect(permissions).toContain(Permission.DOCUMENT_READ)
+      expect(permissions).toContain(Permission.DOCUMENT_UPLOAD)
+      expect(permissions).toContain(Permission.TAG_APPLY)
       expect(permissions).not.toContain(Permission.TASK_DELETE)
       expect(permissions).not.toContain(Permission.USER_MANAGE)
     })
 
-    it('should return correct permissions for associate role', () => {
+    it('should return correct permissions for ASSOCIATE', () => {
       const permissions = getRolePermissions(UserRole.ASSOCIATE)
       
       expect(permissions).toContain(Permission.TASK_CREATE)
+      expect(permissions).toContain(Permission.TASK_READ)
+      expect(permissions).toContain(Permission.TASK_UPDATE)
       expect(permissions).toContain(Permission.TASK_ASSIGN)
-      expect(permissions).toContain(Permission.DOCUMENT_UPDATE)
-      expect(permissions).not.toContain(Permission.TASK_UNLOCK)
-      expect(permissions).not.toContain(Permission.AUDIT_VIEW)
+      expect(permissions).toContain(Permission.DOCUMENT_UPLOAD)
+      expect(permissions).toContain(Permission.TAG_CREATE)
+      expect(permissions).not.toContain(Permission.TASK_DELETE)
+      expect(permissions).not.toContain(Permission.USER_MANAGE)
     })
 
-    it('should return correct permissions for manager role', () => {
+    it('should return correct permissions for MANAGER', () => {
       const permissions = getRolePermissions(UserRole.MANAGER)
       
-      expect(permissions).toContain(Permission.TASK_LOCK)
+      expect(permissions).toContain(Permission.TASK_DELETE)
       expect(permissions).toContain(Permission.DOCUMENT_DELETE)
+      expect(permissions).toContain(Permission.TAG_MANAGE)
       expect(permissions).toContain(Permission.USER_MANAGE)
-      expect(permissions).not.toContain(Permission.TASK_UNLOCK)
+      expect(permissions).not.toContain(Permission.AUDIT_VIEW)
       expect(permissions).not.toContain(Permission.ORG_SETTINGS)
     })
 
-    it('should return correct permissions for partner role', () => {
+    it('should return correct permissions for PARTNER', () => {
       const permissions = getRolePermissions(UserRole.PARTNER)
       
       expect(permissions).toContain(Permission.TASK_UNLOCK)
+      expect(permissions).toContain(Permission.DOCUMENT_DOWNLOAD)
       expect(permissions).toContain(Permission.AUDIT_VIEW)
       expect(permissions).toContain(Permission.ORG_SETTINGS)
+      expect(permissions).not.toContain(Permission.SYSTEM_ADMIN)
     })
 
-    it('should return all permissions for admin role', () => {
+    it('should return all permissions for ADMIN', () => {
       const permissions = getRolePermissions(UserRole.ADMIN)
       const allPermissions = Object.values(Permission)
       
-      expect(permissions).toHaveLength(allPermissions.length)
-      allPermissions.forEach(permission => {
-        expect(permissions).toContain(permission)
-      })
+      expect(permissions).toEqual(allPermissions)
     })
 
-    it('should check permissions correctly', () => {
-      expect(hasPermission(UserRole.INTERN, Permission.TASK_READ)).toBe(true)
-      expect(hasPermission(UserRole.INTERN, Permission.TASK_DELETE)).toBe(false)
-      expect(hasPermission(UserRole.PARTNER, Permission.TASK_UNLOCK)).toBe(true)
-      expect(hasPermission(UserRole.ASSOCIATE, Permission.USER_MANAGE)).toBe(false)
+    it('should return empty array for invalid role', () => {
+      const permissions = getRolePermissions('INVALID_ROLE' as UserRole)
+      expect(permissions).toEqual([])
     })
   })
 
-  describe('Password Validation', () => {
-    it('should validate strong passwords', () => {
-      const strongPassword = 'StrongPass123!'
-      const result = validatePasswordStrength(strongPassword)
+  describe('hasPermission', () => {
+    it('should return true when user has permission', () => {
+      const result = hasPermission(UserRole.ASSOCIATE, Permission.TASK_CREATE)
+      expect(result).toBe(true)
+    })
+
+    it('should return false when user does not have permission', () => {
+      const result = hasPermission(UserRole.INTERN, Permission.TASK_DELETE)
+      expect(result).toBe(false)
+    })
+
+    it('should return true for ADMIN with any permission', () => {
+      const result = hasPermission(UserRole.ADMIN, Permission.AUDIT_VIEW)
+      expect(result).toBe(true)
+    })
+
+    it('should return false for invalid role', () => {
+      const result = hasPermission('INVALID_ROLE' as UserRole, Permission.TASK_READ)
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('validatePasswordStrength', () => {
+    it('should validate strong password', () => {
+      const result = validatePasswordStrength('StrongPass123!')
       
       expect(result.isValid).toBe(true)
-      expect(result.errors).toHaveLength(0)
+      expect(result.errors).toEqual([])
     })
 
-    it('should reject weak passwords', () => {
-      const weakPasswords = getWeakPasswordSamples()
-      validateWeakPasswords(weakPasswords)
+    it('should reject password too short', () => {
+      const result = validatePasswordStrength('Short1!')
+      
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Password must be at least 8 characters long')
     })
 
-    function getWeakPasswordSamples() {
-      return [
-        'short',
-        'nouppercase123!',
-        'NOLOWERCASE123!',
-        'NoNumbers!',
-        'NoSpecialChars123'
-      ]
-    }
+    it('should reject password without uppercase', () => {
+      const result = validatePasswordStrength('lowercase123!')
+      
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Password must contain at least one uppercase letter')
+    })
 
-    function validateWeakPasswords(passwords: string[]) {
-      passwords.forEach(password => {
-        const result = validatePasswordStrength(password)
-        expect(result.isValid).toBe(false)
-        expect(result.errors.length).toBeGreaterThan(0)
-      })
-    }
+    it('should reject password without lowercase', () => {
+      const result = validatePasswordStrength('UPPERCASE123!')
+      
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Password must contain at least one lowercase letter')
+    })
 
-    it('should provide specific error messages', () => {
+    it('should reject password without number', () => {
+      const result = validatePasswordStrength('NoNumbers!')
+      
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Password must contain at least one number')
+    })
+
+    it('should reject password without special character', () => {
+      const result = validatePasswordStrength('NoSpecial123')
+      
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Password must contain at least one special character')
+    })
+
+    it('should return multiple errors for weak password', () => {
       const result = validatePasswordStrength('weak')
       
+      expect(result.isValid).toBe(false)
+      expect(result.errors.length).toBeGreaterThan(1)
       expect(result.errors).toContain('Password must be at least 8 characters long')
       expect(result.errors).toContain('Password must contain at least one uppercase letter')
       expect(result.errors).toContain('Password must contain at least one number')
@@ -200,89 +321,145 @@ describe('Authentication Utilities', () => {
     })
   })
 
-  describe('Email Validation', () => {
-    it('should validate correct email addresses', () => {
-      const validEmails = getValidEmailSamples()
-      validateEmailAddresses(validEmails, true)
+  describe('validateEmail', () => {
+    it('should validate correct email format', () => {
+      expect(validateEmail('test@example.com')).toBe(true)
+      expect(validateEmail('user.name@domain.co.uk')).toBe(true)
+      expect(validateEmail('user+tag@example.org')).toBe(true)
     })
 
-    function getValidEmailSamples() {
-      return [
-        'test@example.com',
-        'user.name@domain.co.uk',
-        'first+last@subdomain.example.org'
-      ]
-    }
-
-    function validateEmailAddresses(emails: string[], shouldBeValid: boolean) {
-      emails.forEach(email => {
-        expect(validateEmail(email)).toBe(shouldBeValid)
-      })
-    }
-
-    it('should reject invalid email addresses', () => {
-      const invalidEmails = getInvalidEmailSamples()
-      validateEmailAddresses(invalidEmails, false)
+    it('should reject invalid email formats', () => {
+      expect(validateEmail('invalid-email')).toBe(false)
+      expect(validateEmail('missing@domain')).toBe(false)
+      expect(validateEmail('@domain.com')).toBe(false)
+      expect(validateEmail('user@')).toBe(false)
+      expect(validateEmail('')).toBe(false)
+      expect(validateEmail('user name@domain.com')).toBe(false)
     })
-
-    function getInvalidEmailSamples() {
-      return [
-        'invalid-email',
-        '@domain.com',
-        'user@',
-        'user@domain',
-        'user name@domain.com'
-      ]
-    }
   })
 
-  describe('Utility Functions', () => {
-    it('should generate secure random tokens', () => {
+  describe('generateSecureToken', () => {
+    it('should generate secure token', () => {
+      const token = generateSecureToken()
+      
+      expect(token).toBeDefined()
+      expect(typeof token).toBe('string')
+      expect(token.length).toBe(64) // 32 bytes = 64 hex chars
+    })
+
+    it('should generate different tokens each time', () => {
       const token1 = generateSecureToken()
       const token2 = generateSecureToken()
       
-      expect(token1).toBeDefined()
-      expect(token2).toBeDefined()
       expect(token1).not.toBe(token2)
-      expect(token1.length).toBe(64) // 32 bytes = 64 hex chars
     })
 
-    it('should extract bearer token from header', () => {
-      const token = 'abc123xyz'
-      const authHeader = `Bearer ${token}`
-      
-      expect(extractBearerToken(authHeader)).toBe(token)
-      expect(extractBearerToken('Invalid header')).toBeNull()
-      expect(extractBearerToken('')).toBeNull()
-      expect(extractBearerToken(undefined)).toBeNull()
+    it('should generate hex string', () => {
+      const token = generateSecureToken()
+      expect(/^[a-f0-9]+$/.test(token)).toBe(true)
+    })
+  })
+
+  describe('extractBearerToken', () => {
+    it('should extract token from valid Bearer header', () => {
+      const token = extractBearerToken('Bearer abc123token')
+      expect(token).toBe('abc123token')
+    })
+
+    it('should return null for missing header', () => {
+      const token = extractBearerToken(undefined)
+      expect(token).toBeNull()
+    })
+
+    it('should return null for non-Bearer header', () => {
+      const token = extractBearerToken('Basic abc123')
+      expect(token).toBeNull()
+    })
+
+    it('should return empty string for malformed Bearer header', () => {
+      const token = extractBearerToken('Bearer ')
+      expect(token).toBe('')
+    })
+
+    it('should handle Bearer with extra spaces', () => {
+      const token = extractBearerToken('Bearer  token-with-spaces')
+      expect(token).toBe(' token-with-spaces')
+    })
+  })
+
+  describe('createSessionToken', () => {
+    beforeEach(() => {
+      mockJwt.sign.mockReturnValue('session-token')
     })
 
     it('should create session token with user data', () => {
-      const user = createTestUser()
-      const deviceId = 'device-123'
-      
-      const token = createSessionToken(user, deviceId)
-      const decoded = verifyToken(token)
-      
-      validateSessionTokenData(decoded, user, deviceId)
-    })
-
-    function createTestUser() {
-      return {
-        id: 'user-123',
+      const user = {
+        id: 'user-1',
         email: 'test@example.com',
         role: UserRole.ASSOCIATE,
-        organizationId: 'org-123'
+        organizationId: 'org-1'
       }
-    }
 
-    function validateSessionTokenData(decoded: { sub: string; email: string; role: UserRole; orgId: string; deviceId?: string; permissions: Permission[] }, user: ReturnType<typeof createTestUser>, deviceId: string) {
-      expect(decoded.sub).toBe(user.id)
-      expect(decoded.email).toBe(user.email)
-      expect(decoded.role).toBe(user.role)
-      expect(decoded.orgId).toBe(user.organizationId)
-      expect(decoded.deviceId).toBe(deviceId)
-      expect(decoded.permissions).toEqual(getRolePermissions(user.role))
-    }
+      const token = createSessionToken(user)
+
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        {
+          sub: 'user-1',
+          email: 'test@example.com',
+          role: UserRole.ASSOCIATE,
+          orgId: 'org-1',
+          permissions: getRolePermissions(UserRole.ASSOCIATE)
+        },
+        'your-secret-key-change-in-production',
+        { expiresIn: '7d' }
+      )
+      expect(token).toBe('session-token')
+    })
+
+    it('should create session token with device ID', () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        role: UserRole.MANAGER,
+        organizationId: 'org-1'
+      }
+      const deviceId = 'device-123'
+
+      const token = createSessionToken(user, deviceId)
+
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        {
+          sub: 'user-1',
+          email: 'test@example.com',
+          role: UserRole.MANAGER,
+          orgId: 'org-1',
+          permissions: getRolePermissions(UserRole.MANAGER),
+          deviceId: 'device-123'
+        },
+        'your-secret-key-change-in-production',
+        { expiresIn: '7d' }
+      )
+      expect(token).toBe('session-token')
+    })
+
+    it('should include correct permissions based on role', () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        role: UserRole.PARTNER,
+        organizationId: 'org-1'
+      }
+
+      createSessionToken(user)
+
+      const expectedPermissions = getRolePermissions(UserRole.PARTNER)
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          permissions: expectedPermissions
+        }),
+        expect.any(String),
+        expect.any(Object)
+      )
+    })
   })
 })

@@ -37,6 +37,41 @@ enum TaskPriority {
   URGENT
 }
 
+// Approval Status Enum
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELEGATED
+  CANCELLED
+}
+
+// Approval Decision Enum
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+  DELEGATE
+  REQUEST_CHANGES
+}
+
+// Time Entry Status Enum
+enum TimeEntryStatus {
+  RUNNING
+  STOPPED
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+// Time Entry Type Enum
+enum TimeEntryType {
+  WORK
+  BREAK
+  MEETING
+  TRAVEL
+  ADMIN
+}
+
 // Channel Type Enum
 enum ChannelType {
   DIRECT
@@ -71,6 +106,25 @@ model Organization {
   emails     Email[]
   chatChannels ChatChannel[]
   auditLogs  AuditLog[]
+  
+  // Approval workflow relations
+  approvalWorkflows ApprovalWorkflow[]
+  approvalRequests  ApprovalRequest[]
+  approvalTemplates ApprovalTemplate[]
+  approvalDelegates ApprovalDelegate[]
+  
+  // Time tracking relations
+  timeEntries       TimeEntry[]
+  timeBudgets       TimeBudget[]
+  timeReports       TimeReport[]
+  productivityMetrics ProductivityMetric[]
+  
+  // Recurring task and automation relations
+  recurringTasks    RecurringTask[]
+  automationRules   AutomationRule[]
+  workloadMetrics   WorkloadMetric[]
+  escalationRules   EscalationRule[]
+  taskSuggestions   TaskSuggestion[]
 
   @@map("organizations")
 }
@@ -115,6 +169,30 @@ model User {
   receivedShares    DocumentShare[]     @relation("DocumentRecipient")
   documentComments  DocumentComment[]   @relation("DocumentCommenter")
   folderPermissions FolderPermission[]  @relation("FolderPermissionUser")
+  
+  // Approval workflow relations
+  createdWorkflows  ApprovalWorkflow[]  @relation("WorkflowCreator")
+  approvalRequests  ApprovalRequest[]   @relation("ApprovalRequests")
+  delegatedApprovals ApprovalRequest[]  @relation("DelegatedApprovals")
+  createdTemplates  ApprovalTemplate[]  @relation("TemplateCreator")
+  delegatorRelations ApprovalDelegate[] @relation("ApprovalDelegator")
+  delegateRelations ApprovalDelegate[]  @relation("ApprovalDelegate")
+  
+  // Time tracking relations
+  timeEntries       TimeEntry[]         @relation("TimeEntryUser")
+  approvedTimeEntries TimeEntry[]       @relation("TimeEntryApprover")
+  timeBudgets       TimeBudget[]        @relation("TimeBudgetUser")
+  createdTimeBudgets TimeBudget[]       @relation("TimeBudgetCreator")
+  generatedReports  TimeReport[]        @relation("TimeReportGenerator")
+  productivityMetrics ProductivityMetric[] @relation("ProductivityMetrics")
+  
+  // Recurring task and automation relations
+  assignedRecurringTasks RecurringTask[] @relation("RecurringTaskAssignee")
+  createdRecurringTasks  RecurringTask[] @relation("RecurringTaskCreator")
+  createdAutomationRules AutomationRule[] @relation("AutomationRuleCreator")
+  workloadMetrics        WorkloadMetric[] @relation("WorkloadMetrics")
+  createdEscalationRules EscalationRule[] @relation("EscalationRuleCreator")
+  taskSuggestions        TaskSuggestion[] @relation("TaskSuggestions")
 
   @@index([organizationId])
   @@index([email])
@@ -164,6 +242,23 @@ model Task {
   lockedBy       String?
   estimatedHours Int?
   actualHours    Int?
+  
+  // Approval workflow fields
+  requiresApproval Boolean       @default(false)
+  approvalStatus   ApprovalStatus?
+  currentApprovalStep Int?       @default(0)
+  
+  // Recurring task fields
+  isRecurring      Boolean       @default(false)
+  recurringTaskId  String?       // Reference to RecurringTask
+  instanceNumber   Int?          // For recurring task instances
+  
+  // Automation fields
+  isAutoAssigned   Boolean       @default(false)
+  autoAssignmentReason String?   // Reason for auto-assignment
+  escalationLevel  Int           @default(0)
+  lastEscalatedAt  DateTime?
+  
   metadata       Json          @default("{}")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -177,6 +272,21 @@ model Task {
   childTasks     Task[]       @relation("TaskHierarchy")
   comments       TaskComment[]
   attachments    TaskAttachment[]
+  
+  // Approval workflow relations
+  approvalWorkflow ApprovalWorkflow?
+  approvalRequests ApprovalRequest[]
+  
+  // Time tracking relations
+  timeEntries      TimeEntry[]
+  timeBudgets      TimeBudget[]
+  
+  // Recurring task relations
+  recurringTask    RecurringTask? @relation(fields: [recurringTaskId], references: [id])
+  
+  // Automation relations
+  automationTriggers AutomationTrigger[]
+  escalationLogs     EscalationLog[]
 
   @@index([organizationId])
   @@index([assignedTo])
@@ -184,6 +294,9 @@ model Task {
   @@index([dueDate])
   @@index([createdBy])
   @@index([parentTaskId])
+  @@index([recurringTaskId])
+  @@index([isRecurring])
+  @@index([escalationLevel])
   @@map("tasks")
 }
 
@@ -559,4 +672,542 @@ model FolderPermission {
   @@index([userId])
   @@index([role])
   @@map("folder_permissions")
+}
+
+// Approval Workflow System
+model ApprovalWorkflow {
+  id             String   @id @default(cuid())
+  organizationId String
+  taskId         String   @unique
+  name           String
+  description    String?
+  steps          Json     // Array of approval steps with conditions
+  isActive       Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  creator        User         @relation("WorkflowCreator", fields: [createdBy], references: [id])
+  approvalRequests ApprovalRequest[]
+
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([createdBy])
+  @@map("approval_workflows")
+}
+
+model ApprovalRequest {
+  id             String          @id @default(cuid())
+  organizationId String
+  workflowId     String
+  taskId         String
+  stepNumber     Int
+  approverId     String
+  delegatedFrom  String?         // If this approval was delegated
+  status         ApprovalStatus  @default(PENDING)
+  decision       ApprovalDecision?
+  comments       String?
+  decidedAt      DateTime?
+  expiresAt      DateTime?
+  reminderSentAt DateTime?
+  metadata       Json            @default("{}")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow       ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  task           Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  approver       User             @relation("ApprovalRequests", fields: [approverId], references: [id])
+  delegatedFromUser User?         @relation("DelegatedApprovals", fields: [delegatedFrom], references: [id])
+  
+  @@index([organizationId])
+  @@index([workflowId])
+  @@index([taskId])
+  @@index([approverId])
+  @@index([status])
+  @@index([stepNumber])
+  @@map("approval_requests")
+}
+
+model ApprovalTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  category       String?  // e.g., 'audit', 'tax', 'compliance'
+  conditions     Json     // Conditions for when this template applies
+  steps          Json     // Template approval steps
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator        User         @relation("TemplateCreator", fields: [createdBy], references: [id])
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([isDefault])
+  @@index([isActive])
+  @@map("approval_templates")
+}
+
+model ApprovalDelegate {
+  id             String    @id @default(cuid())
+  organizationId String
+  delegatorId    String
+  delegateId     String
+  startDate      DateTime  @default(now())
+  endDate        DateTime?
+  conditions     Json?     // Optional conditions for delegation
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  delegator      User         @relation("ApprovalDelegator", fields: [delegatorId], references: [id])
+  delegate       User         @relation("ApprovalDelegate", fields: [delegateId], references: [id])
+
+  @@unique([delegatorId, delegateId, startDate])
+  @@index([organizationId])
+  @@index([delegatorId])
+  @@index([delegateId])
+  @@index([isActive])
+  @@map("approval_delegates")
+}
+
+// Time Tracking System
+model TimeEntry {
+  id             String          @id @default(cuid())
+  organizationId String
+  userId         String
+  taskId         String?
+  projectId      String?
+  clientId       String?
+  description    String?
+  startTime      DateTime
+  endTime        DateTime?
+  duration       Int?            // Duration in minutes
+  status         TimeEntryStatus @default(RUNNING)
+  type           TimeEntryType   @default(WORK)
+  isBillable     Boolean         @default(true)
+  hourlyRate     Decimal?        @db.Decimal(10, 2)
+  totalAmount    Decimal?        @db.Decimal(10, 2)
+  tags           String[]
+  metadata       Json            @default("{}")
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  approvedBy     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation("TimeEntryUser", fields: [userId], references: [id])
+  task           Task?        @relation(fields: [taskId], references: [id])
+  approver       User?        @relation("TimeEntryApprover", fields: [approvedBy], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([taskId])
+  @@index([startTime])
+  @@index([status])
+  @@index([isBillable])
+  @@map("time_entries")
+}
+
+model TimeBudget {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  taskId         String?
+  projectId      String?
+  clientId       String?
+  userId         String?  // If budget is for specific user
+  budgetHours    Decimal  @db.Decimal(8, 2)
+  usedHours      Decimal  @default(0) @db.Decimal(8, 2)
+  startDate      DateTime
+  endDate        DateTime
+  alertThreshold Decimal? @db.Decimal(3, 2) // Percentage (0.8 = 80%)
+  isActive       Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task           Task?        @relation(fields: [taskId], references: [id])
+  user           User?        @relation("TimeBudgetUser", fields: [userId], references: [id])
+  creator        User         @relation("TimeBudgetCreator", fields: [createdBy], references: [id])
+
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@map("time_budgets")
+}
+
+model TimeReport {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  reportType     String   // 'timesheet', 'productivity', 'billing', 'project'
+  filters        Json     // Report filters and parameters
+  generatedBy    String
+  generatedAt    DateTime @default(now())
+  startDate      DateTime
+  endDate        DateTime
+  data           Json     // Report data and results
+  isScheduled    Boolean  @default(false)
+  scheduleConfig Json?    // Cron expression and settings
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  generator      User         @relation("TimeReportGenerator", fields: [generatedBy], references: [id])
+
+  @@index([organizationId])
+  @@index([generatedBy])
+  @@index([reportType])
+  @@index([generatedAt])
+  @@map("time_reports")
+}
+
+model ProductivityMetric {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  date           DateTime @db.Date
+  totalHours     Decimal  @db.Decimal(8, 2)
+  billableHours  Decimal  @db.Decimal(8, 2)
+  tasksCompleted Int      @default(0)
+  focusScore     Decimal? @db.Decimal(3, 2) // 0-1 scale
+  efficiencyScore Decimal? @db.Decimal(3, 2) // 0-1 scale
+  utilizationRate Decimal? @db.Decimal(3, 2) // 0-1 scale
+  metadata       Json     @default("{}")
+  calculatedAt   DateTime @default(now())
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation("ProductivityMetrics", fields: [userId], references: [id])
+
+  @@unique([organizationId, userId, date])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([date])
+  @@map("productivity_metrics")
+}
+
+// Recurring Task System
+enum RecurrencePattern {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum RecurrenceEndType {
+  NEVER
+  AFTER_OCCURRENCES
+  ON_DATE
+}
+
+model RecurringTask {
+  id             String            @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  priority       TaskPriority      @default(MEDIUM)
+  assignedTo     String?
+  createdBy      String
+  
+  // Recurrence configuration
+  pattern        RecurrencePattern
+  interval       Int               @default(1) // Every N days/weeks/months
+  daysOfWeek     Int[]             // For weekly: [1,2,3,4,5] = Mon-Fri
+  dayOfMonth     Int?              // For monthly: 15 = 15th of month
+  monthsOfYear   Int[]             // For yearly: [3,6,9,12] = quarterly
+  customCron     String?           // For custom patterns
+  
+  // Recurrence timing
+  startDate      DateTime
+  endType        RecurrenceEndType @default(NEVER)
+  endDate        DateTime?
+  maxOccurrences Int?
+  
+  // Task template
+  estimatedHours Int?
+  requiresApproval Boolean         @default(false)
+  templateData   Json              @default("{}")
+  
+  // Status
+  isActive       Boolean           @default(true)
+  isPaused       Boolean           @default(false)
+  lastGenerated  DateTime?
+  nextDue        DateTime?
+  totalGenerated Int               @default(0)
+  
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedUser   User?        @relation("RecurringTaskAssignee", fields: [assignedTo], references: [id])
+  createdByUser  User         @relation("RecurringTaskCreator", fields: [createdBy], references: [id])
+  generatedTasks Task[]
+
+  @@index([organizationId])
+  @@index([assignedTo])
+  @@index([isActive])
+  @@index([nextDue])
+  @@index([pattern])
+  @@map("recurring_tasks")
+}
+
+// Task Automation System
+enum TriggerType {
+  DEADLINE_APPROACHING
+  TASK_OVERDUE
+  TASK_COMPLETED
+  TASK_CREATED
+  WORKLOAD_THRESHOLD
+  TIME_BASED
+  STATUS_CHANGE
+}
+
+enum ActionType {
+  ASSIGN_TASK
+  ESCALATE_TASK
+  CREATE_TASK
+  SEND_NOTIFICATION
+  UPDATE_PRIORITY
+  ADD_COMMENT
+  DELEGATE_APPROVAL
+}
+
+model AutomationRule {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  
+  // Trigger configuration
+  triggerType    TriggerType
+  triggerConfig  Json        // Specific trigger parameters
+  
+  // Conditions
+  conditions     Json        // Array of conditions to match
+  
+  // Actions
+  actions        Json        // Array of actions to execute
+  
+  // Settings
+  isActive       Boolean     @default(true)
+  priority       Int         @default(0) // Higher priority rules execute first
+  cooldownMinutes Int?       // Minimum time between executions
+  maxExecutions  Int?        // Maximum executions per day
+  
+  // Statistics
+  executionCount Int         @default(0)
+  lastExecuted   DateTime?
+  successCount   Int         @default(0)
+  errorCount     Int         @default(0)
+  
+  createdBy      String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator        User         @relation("AutomationRuleCreator", fields: [createdBy], references: [id])
+  triggers       AutomationTrigger[]
+  executions     AutomationExecution[]
+
+  @@index([organizationId])
+  @@index([triggerType])
+  @@index([isActive])
+  @@index([priority])
+  @@map("automation_rules")
+}
+
+model AutomationTrigger {
+  id             String         @id @default(cuid())
+  ruleId         String
+  taskId         String?        // Optional task reference
+  triggerData    Json           // Data that triggered the rule
+  scheduledFor   DateTime?      // For time-based triggers
+  isProcessed    Boolean        @default(false)
+  processedAt    DateTime?
+  createdAt      DateTime       @default(now())
+
+  // Relations
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  task           Task?          @relation(fields: [taskId], references: [id])
+
+  @@index([ruleId])
+  @@index([taskId])
+  @@index([isProcessed])
+  @@index([scheduledFor])
+  @@map("automation_triggers")
+}
+
+model AutomationExecution {
+  id             String         @id @default(cuid())
+  ruleId         String
+  triggerId      String?
+  taskId         String?
+  
+  // Execution details
+  status         String         // 'success', 'error', 'partial'
+  actionsExecuted Json          // Array of executed actions
+  results        Json           // Results of each action
+  errorMessage   String?
+  executionTime  Int?           // Execution time in milliseconds
+  
+  executedAt     DateTime       @default(now())
+
+  // Relations
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([taskId])
+  @@index([status])
+  @@index([executedAt])
+  @@map("automation_executions")
+}
+
+// Task Assignment Intelligence
+model WorkloadMetric {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  date           DateTime @db.Date
+  
+  // Workload metrics
+  activeTasks    Int      @default(0)
+  overdueTasks   Int      @default(0)
+  completedTasks Int      @default(0)
+  totalHours     Decimal  @db.Decimal(8, 2)
+  availableHours Decimal  @db.Decimal(8, 2)
+  utilizationRate Decimal @db.Decimal(3, 2) // 0-1 scale
+  
+  // Skill and performance metrics
+  avgCompletionTime Decimal? @db.Decimal(8, 2) // Hours
+  qualityScore   Decimal?     @db.Decimal(3, 2) // 0-1 scale
+  specializations String[]    // Areas of expertise
+  
+  calculatedAt   DateTime @default(now())
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation("WorkloadMetrics", fields: [userId], references: [id])
+
+  @@unique([organizationId, userId, date])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([date])
+  @@index([utilizationRate])
+  @@map("workload_metrics")
+}
+
+// Task Escalation System
+model EscalationRule {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  
+  // Trigger conditions
+  conditions     Json     // When to escalate (overdue hours, priority, etc.)
+  
+  // Escalation levels
+  levels         Json     // Array of escalation levels with actions
+  
+  // Settings
+  isActive       Boolean  @default(true)
+  priority       Int      @default(0)
+  
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator        User         @relation("EscalationRuleCreator", fields: [createdBy], references: [id])
+  logs           EscalationLog[]
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([priority])
+  @@map("escalation_rules")
+}
+
+model EscalationLog {
+  id             String         @id @default(cuid())
+  taskId         String
+  ruleId         String
+  level          Int
+  action         String         // Action taken (notify, reassign, etc.)
+  actionData     Json           // Details of the action
+  executedBy     String?        // User who triggered (null for system)
+  executedAt     DateTime       @default(now())
+
+  // Relations
+  task           Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  rule           EscalationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([ruleId])
+  @@index([level])
+  @@index([executedAt])
+  @@map("escalation_logs")
+}
+
+// Task Suggestions System
+model TaskSuggestion {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  
+  // Suggestion details
+  type           String   // 'recurring', 'similar', 'workload', 'deadline'
+  title          String
+  description    String?
+  confidence     Decimal  @db.Decimal(3, 2) // 0-1 confidence score
+  
+  // Suggested task data
+  suggestedData  Json     // Task creation data
+  reasoning      Json     // Why this was suggested
+  
+  // Status
+  status         String   @default('pending') // 'pending', 'accepted', 'rejected', 'expired'
+  respondedAt    DateTime?
+  expiresAt      DateTime?
+  
+  createdAt      DateTime @default(now())
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation("TaskSuggestions", fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([confidence])
+  @@index([expiresAt])
+  @@map("task_suggestions")
 }

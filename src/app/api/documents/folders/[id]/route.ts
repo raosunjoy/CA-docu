@@ -3,6 +3,18 @@ import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
 import { z } from 'zod'
 
+const folderUpdateSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  parentId: z.string().optional()
+})
+
+const bulkOperationSchema = z.object({
+  operation: z.enum(['move', 'delete']),
+  targetFolderId: z.string().optional(), // Required for move operation
+  folderIds: z.array(z.string()).min(1)
+})
+
 interface ErrorResponse {
   success: false
   error: {
@@ -15,96 +27,6 @@ interface ErrorResponse {
 interface SuccessResponse<T = unknown> {
   success: true
   data: T
-}
-
-const folderUpdateSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  parentId: z.string().optional()
-})
-
-const getFolderIncludes = () => ({
-  creator: {
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true
-    }
-  },
-  parent: {
-    select: {
-      id: true,
-      name: true,
-      path: true
-    }
-  },
-  children: {
-    select: {
-      id: true,
-      name: true,
-      path: true,
-      _count: {
-        select: {
-          documents: true,
-          children: true
-        }
-      }
-    }
-  },
-  documents: {
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      fileSize: true,
-      createdAt: true
-    },
-    where: {
-      isDeleted: false
-    },
-    orderBy: { createdAt: 'desc' as const }
-  },
-  _count: {
-    select: {
-      documents: true,
-      children: true
-    }
-  }
-})
-
-async function findFolder(id: string, organizationId: string) {
-  return prisma.documentFolder.findFirst({
-    where: {
-      id,
-      organizationId
-    },
-    include: getFolderIncludes()
-  })
-}
-
-function buildFolderPath(parentPath: string | null, folderName: string): string {
-  if (!parentPath) return folderName
-  return `${parentPath}/${folderName}`
-}
-
-async function updateChildrenPaths(folderId: string, newPath: string) {
-  const children = await prisma.documentFolder.findMany({
-    where: { parentId: folderId },
-    select: { id: true, name: true }
-  })
-
-  for (const child of children) {
-    const childPath = `${newPath}/${child.name}`
-    
-    await prisma.documentFolder.update({
-      where: { id: child.id },
-      data: { path: childPath }
-    })
-
-    // Recursively update nested children
-    await updateChildrenPaths(child.id, childPath)
-  }
 }
 
 function createErrorResponse(code: string, message: string, status: number, details?: unknown): NextResponse {
@@ -131,238 +53,128 @@ function createSuccessResponse<T>(data: T, status = 200): NextResponse {
   )
 }
 
-async function validateParentFolder(parentId: string, organizationId: string) {
-  return prisma.documentFolder.findFirst({
+async function validateFolderAccess(folderId: string, organizationId: string, userId: string, requiredPermission: string = 'view') {
+  const folder = await prisma.documentFolder.findFirst({
+    where: {
+      id: folderId,
+      organizationId
+    },
+    include: {
+      permissions: {
+        where: {
+          OR: [
+            { userId },
+            { role: { in: await getUserRoles(userId) } }
+          ]
+        }
+      }
+    }
+  })
+
+  if (!folder) {
+    throw new Error('Folder not found')
+  }
+
+  // Check permissions
+  const hasPermission = folder.createdBy === userId || 
+    folder.permissions.some(p => p.permissions.includes(requiredPermission))
+
+  if (!hasPermission) {
+    throw new Error('Insufficient permissions')
+  }
+
+  return folder
+}
+
+async function getUserRoles(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true }
+  })
+  return user ? [user.role] : []
+}
+
+function buildFolderPath(parentPath: string | null, folderName: string): string {
+  if (!parentPath) return folderName
+  return `${parentPath}/${folderName}`
+}
+
+async function validateParentFolder(parentId: string, organizationId: string, currentFolderId?: string) {
+  const parent = await prisma.documentFolder.findFirst({
     where: {
       id: parentId,
       organizationId
     }
   })
-}
-
-async function checkCircularReference(folderId: string, newParentId: string): Promise<boolean> {
-  let currentParent = await prisma.documentFolder.findFirst({
-    where: { id: newParentId },
-    select: { id: true, parentId: true }
-  })
-
-  while (currentParent) {
-    if (currentParent.id === folderId) {
-      return true // Circular reference detected
-    }
-    
-    if (!currentParent.parentId) break
-    
-    currentParent = await prisma.documentFolder.findFirst({
-      where: { id: currentParent.parentId },
-      select: { id: true, parentId: true }
-    })
-  }
-
-  return false
-}
-
-async function validateFolderMove(folderId: string, newParentId: string | undefined, organizationId: string) {
-  if (!newParentId) return null
-
-  // Check if new parent exists
-  const newParent = await validateParentFolder(newParentId, organizationId)
-  if (!newParent) {
+  
+  if (!parent) {
     throw new Error('Parent folder not found')
   }
 
-  // Check for circular reference
-  const hasCircularRef = await checkCircularReference(folderId, newParentId)
-  if (hasCircularRef) {
-    throw new Error('Cannot move folder into itself or its descendants')
+  // Prevent circular references
+  if (currentFolderId && await isDescendant(parentId, currentFolderId)) {
+    throw new Error('Cannot move folder to its own descendant')
   }
-
-  return newParent
+  
+  return parent
 }
 
+async function isDescendant(ancestorId: string, descendantId: string): Promise<boolean> {
+  const descendant = await prisma.documentFolder.findUnique({
+    where: { id: descendantId },
+    select: { parentId: true }
+  })
 
-async function checkNameConflict(
+  if (!descendant || !descendant.parentId) {
+    return false
+  }
+
+  if (descendant.parentId === ancestorId) {
+    return true
+  }
+
+  return isDescendant(ancestorId, descendant.parentId)
+}
+
+async function updateChildrenPaths(folderId: string, newPath: string) {
+  const children = await prisma.documentFolder.findMany({
+    where: { parentId: folderId },
+    select: { id: true, name: true }
+  })
+
+  for (const child of children) {
+    const childPath = buildFolderPath(newPath, child.name)
+    await prisma.documentFolder.update({
+      where: { id: child.id },
+      data: { path: childPath }
+    })
+    
+    // Recursively update grandchildren
+    await updateChildrenPaths(child.id, childPath)
+  }
+}
+
+async function checkFolderNameConflict(
   organizationId: string,
   name: string,
   parentId: string | null,
-  excludeId: string
-): Promise<NextResponse | null> {
-  const conflictingFolder = await prisma.documentFolder.findFirst({
+  excludeFolderId?: string
+) {
+  const existingFolder = await prisma.documentFolder.findFirst({
     where: {
       organizationId,
       name,
       parentId,
-      id: { not: excludeId }
+      ...(excludeFolderId ? { id: { not: excludeFolderId } } : {})
     }
   })
 
-  if (conflictingFolder) {
-    return createErrorResponse('FOLDER_EXISTS', 'A folder with this name already exists in the same location', 409)
-  }
-  return null
-}
-
-async function validateFolderDeletion(folder: { _count: { children: number; documents: number } }): Promise<NextResponse | null> {
-  if (folder._count.children > 0) {
-    return createErrorResponse('FOLDER_NOT_EMPTY', 'Cannot delete folder that contains subfolders', 400)
-  }
-
-  if (folder._count.documents > 0) {
-    return createErrorResponse('FOLDER_NOT_EMPTY', 'Cannot delete folder that contains documents', 400)
-  }
-
-  return null
-}
-
-async function updateFolderData(
-  id: string,
-  updateData: { name?: string; description?: string; parentId?: string },
-  newPath: string
-) {
-  return prisma.documentFolder.update({
-    where: { id },
-    data: {
-      ...(updateData.name && { name: updateData.name }),
-      ...(updateData.description !== undefined && { description: updateData.description || null }),
-      ...(updateData.parentId !== undefined && { parentId: updateData.parentId || null }),
-      path: newPath
-    },
-    include: {
-      creator: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true
-        }
-      },
-      _count: {
-        select: {
-          documents: true,
-          children: true
-        }
-      }
-    }
-  })
-}
-
-function handlePatchError(error: unknown): NextResponse {
-  if (error instanceof z.ZodError) {
-    return createErrorResponse('VALIDATION_ERROR', 'Invalid request data', 400, error.issues)
-  }
-
-  if (error instanceof Error) {
-    if (error.message === 'Parent folder not found') {
-      return createErrorResponse('PARENT_FOLDER_NOT_FOUND', 'Parent folder not found', 400)
-    }
-
-    if (error.message === 'Cannot move folder into itself or its descendants') {
-      return createErrorResponse('INVALID_MOVE', 'Cannot move folder into itself or its descendants', 400)
-    }
-  }
-
-  return createErrorResponse('UPDATE_FAILED', 'Failed to update folder', 500)
-}
-
-async function validateFolderUpdateMove(
-  id: string,
-  updateData: { parentId?: string },
-  existingFolder: { parentId: string | null },
-  organizationId: string
-) {
-  if (updateData.parentId !== undefined && updateData.parentId !== existingFolder.parentId) {
-    return validateFolderMove(id, updateData.parentId, organizationId)
-  }
-  return null
-}
-
-async function validateFolderUpdateName(
-  id: string,
-  updateData: { name?: string; parentId?: string },
-  existingFolder: { name: string; parentId: string | null },
-  organizationId: string
-): Promise<NextResponse | null> {
-  if (updateData.name && updateData.name !== existingFolder.name) {
-    return checkNameConflict(
-      organizationId,
-      updateData.name,
-      updateData.parentId !== undefined ? updateData.parentId : existingFolder.parentId,
-      id
-    )
-  }
-  return null
-}
-
-function calculateNewPath(
-  updateData: { name?: string; parentId?: string | undefined },
-  existingFolder: { name: string; path: string; parent?: { path: string } | null },
-  newParent: { path: string } | null
-): string {
-  if (updateData.name || newParent !== null) {
-    const folderName = updateData.name || existingFolder.name
-    const parentPath = newParent?.path || (updateData.parentId === null ? null : existingFolder.parent?.path || null)
-    return buildFolderPath(parentPath, folderName)
-  }
-  return existingFolder.path
-}
-
-async function validateFolderUpdates(
-  id: string,
-  updateData: { name?: string | undefined; description?: string | undefined; parentId?: string | undefined },
-  existingFolder: { name: string; parentId: string | null; path: string; parent?: { path: string } | null },
-  organizationId: string
-) {
-  // Validate folder move
-  const moveData = updateData.parentId !== undefined ? { parentId: updateData.parentId } : {}
-  const newParent = await validateFolderUpdateMove(id, moveData, existingFolder, organizationId)
-
-  // Check for name conflicts
-  const nameData = {
-    ...(updateData.name !== undefined && { name: updateData.name }),
-    ...(updateData.parentId !== undefined && { parentId: updateData.parentId })
-  }
-  const nameError = await validateFolderUpdateName(id, nameData, existingFolder, organizationId)
-  
-  return { newParent, nameError }
-}
-
-function prepareFolderUpdateData(updateData: { name?: string | undefined; description?: string | undefined; parentId?: string | undefined }) {
-  return {
-    pathData: {
-      ...(updateData.name !== undefined && { name: updateData.name }),
-      ...(updateData.parentId !== undefined && { parentId: updateData.parentId })
-    },
-    folderUpdateData: {
-      ...(updateData.name !== undefined && { name: updateData.name }),
-      ...(updateData.description !== undefined && { description: updateData.description }),
-      ...(updateData.parentId !== undefined && { parentId: updateData.parentId })
-    }
-  }
-}
-
-async function processFolderUpdate(
-  id: string,
-  updateData: { name?: string | undefined; description?: string | undefined; parentId?: string | undefined },
-  existingFolder: { name: string; parentId: string | null; path: string; parent?: { path: string } | null },
-  organizationId: string
-): Promise<{ folder: unknown; pathChanged: boolean } | NextResponse> {
-  const { newParent, nameError } = await validateFolderUpdates(id, updateData, existingFolder, organizationId)
-  
-  if (nameError) {
-    return nameError
-  }
-
-  const { pathData, folderUpdateData } = prepareFolderUpdateData(updateData)
-  const newPath = calculateNewPath(pathData, existingFolder, newParent)
-  const folder = await updateFolderData(id, folderUpdateData, newPath)
-  const pathChanged = newPath !== existingFolder.path
-
-  return { folder, pathChanged }
+  return !!existingFolder
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -370,24 +182,101 @@ export async function GET(
   }
 
   const { user } = authResult
-  const { id } = await params
+  const folderId = params.id
 
   try {
-    const folder = await findFolder(id, user.orgId)
+    const folder = await validateFolderAccess(folderId, user.orgId, user.sub, 'view')
 
-    if (!folder) {
-      return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+    const folderWithDetails = await prisma.documentFolder.findUnique({
+      where: { id: folderId },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        parent: {
+          select: {
+            id: true,
+            name: true,
+            path: true
+          }
+        },
+        children: {
+          select: {
+            id: true,
+            name: true,
+            path: true,
+            createdAt: true,
+            _count: {
+              select: {
+                documents: true,
+                children: true
+              }
+            }
+          },
+          orderBy: { name: 'asc' }
+        },
+        documents: {
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            fileSize: true,
+            createdAt: true,
+            uploader: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
+          orderBy: { name: 'asc' }
+        },
+        permissions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            documents: true,
+            children: true
+          }
+        }
+      }
+    })
+
+    return createSuccessResponse({ folder: folderWithDetails })
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Folder not found') {
+        return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+      }
+      if (error.message === 'Insufficient permissions') {
+        return createErrorResponse('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions to access folder', 403)
+      }
     }
-
-    return createSuccessResponse({ folder })
-  } catch {
     return createErrorResponse('FETCH_FAILED', 'Failed to fetch folder', 500)
   }
 }
 
-export async function PATCH(
+export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -395,42 +284,111 @@ export async function PATCH(
   }
 
   const { user } = authResult
-  const { id } = await params
+  const folderId = params.id
 
   try {
     const body = await request.json()
     const updateData = folderUpdateSchema.parse(body)
 
-    // Check if folder exists
-    const existingFolder = await findFolder(id, user.orgId)
-    if (!existingFolder) {
-      return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+    await validateFolderAccess(folderId, user.orgId, user.sub, 'edit')
+
+    let parentFolder = null
+    let newPath = updateData.name
+
+    // Validate parent folder if changing
+    if (updateData.parentId !== undefined) {
+      if (updateData.parentId) {
+        parentFolder = await validateParentFolder(updateData.parentId, user.orgId, folderId)
+        newPath = buildFolderPath(parentFolder.path, updateData.name || '')
+      } else {
+        newPath = updateData.name || ''
+      }
     }
 
-    // Process the folder update
-    const result = await processFolderUpdate(id, updateData, existingFolder, user.orgId)
-    
-    // Check if result is an error response
-    if (result instanceof NextResponse) {
-      return result
+    // Check for name conflicts if name is being changed
+    if (updateData.name) {
+      const currentFolder = await prisma.documentFolder.findUnique({
+        where: { id: folderId },
+        select: { name: true, parentId: true }
+      })
+
+      const targetParentId = updateData.parentId !== undefined ? 
+        (updateData.parentId || null) : currentFolder?.parentId
+
+      if (await checkFolderNameConflict(user.orgId, updateData.name, targetParentId, folderId)) {
+        return createErrorResponse('FOLDER_EXISTS', 'A folder with this name already exists in the target location', 409)
+      }
     }
 
-    const { folder, pathChanged } = result
+    // Update folder in transaction to handle path updates
+    const updatedFolder = await prisma.$transaction(async (tx) => {
+      const folder = await tx.documentFolder.update({
+        where: { id: folderId },
+        data: {
+          ...(updateData.name && { name: updateData.name }),
+          ...(updateData.description !== undefined && { description: updateData.description }),
+          ...(updateData.parentId !== undefined && { parentId: updateData.parentId || null }),
+          ...(newPath && { path: newPath })
+        },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
+          parent: {
+            select: {
+              id: true,
+              name: true,
+              path: true
+            }
+          },
+          _count: {
+            select: {
+              documents: true,
+              children: true
+            }
+          }
+        }
+      })
 
-    // Update children paths if path changed
-    if (pathChanged) {
-      await updateChildrenPaths(id, (folder as { path: string }).path)
-    }
+      // Update children paths if path changed
+      if (newPath && newPath !== folder.path) {
+        await updateChildrenPaths(folderId, newPath)
+      }
 
-    return createSuccessResponse({ folder })
+      return folder
+    })
+
+    return createSuccessResponse({ folder: updatedFolder })
   } catch (error) {
-    return handlePatchError(error)
+    if (error instanceof z.ZodError) {
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid update data', 400, error.issues)
+    }
+    if (error instanceof Error) {
+      if (error.message === 'Folder not found') {
+        return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+      }
+      if (error.message === 'Insufficient permissions') {
+        return createErrorResponse('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions to update folder', 403)
+      }
+      if (error.message === 'Parent folder not found') {
+        return createErrorResponse('PARENT_FOLDER_NOT_FOUND', 'Parent folder not found', 400)
+      }
+      if (error.message === 'Cannot move folder to its own descendant') {
+        return createErrorResponse('CIRCULAR_REFERENCE', 'Cannot move folder to its own descendant', 400)
+      }
+    }
+    return createErrorResponse('UPDATE_FAILED', 'Failed to update folder', 500)
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -438,28 +396,177 @@ export async function DELETE(
   }
 
   const { user } = authResult
-  const { id } = await params
+  const folderId = params.id
 
   try {
-    // Check if folder exists
-    const existingFolder = await findFolder(id, user.orgId)
-    if (!existingFolder) {
-      return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+    await validateFolderAccess(folderId, user.orgId, user.sub, 'delete')
+
+    // Check if folder has children or documents
+    const folderContents = await prisma.documentFolder.findUnique({
+      where: { id: folderId },
+      include: {
+        _count: {
+          select: {
+            children: true,
+            documents: { where: { isDeleted: false } }
+          }
+        }
+      }
+    })
+
+    if (folderContents && (folderContents._count.children > 0 || folderContents._count.documents > 0)) {
+      return createErrorResponse('FOLDER_NOT_EMPTY', 'Cannot delete folder that contains subfolders or documents', 400)
     }
 
-    // Validate folder can be deleted
-    const validationError = await validateFolderDeletion(existingFolder)
-    if (validationError) {
-      return validationError
-    }
-
-    // Delete the folder
     await prisma.documentFolder.delete({
-      where: { id }
+      where: { id: folderId }
     })
 
     return createSuccessResponse({ message: 'Folder deleted successfully' })
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Folder not found') {
+        return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+      }
+      if (error.message === 'Insufficient permissions') {
+        return createErrorResponse('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions to delete folder', 403)
+      }
+    }
     return createErrorResponse('DELETE_FAILED', 'Failed to delete folder', 500)
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const authResult = await authMiddleware()(request)
+  if (authResult instanceof NextResponse) {
+    return authResult
+  }
+
+  const { user } = authResult
+  const folderId = params.id
+
+  try {
+    const body = await request.json()
+    const bulkData = bulkOperationSchema.parse(body)
+
+    await validateFolderAccess(folderId, user.orgId, user.sub, 'edit')
+
+    if (bulkData.operation === 'move') {
+      if (!bulkData.targetFolderId) {
+        return createErrorResponse('MISSING_TARGET', 'Target folder ID is required for move operation', 400)
+      }
+
+      // Validate target folder
+      await validateFolderAccess(bulkData.targetFolderId, user.orgId, user.sub, 'upload')
+
+      // Validate all folders to be moved
+      const foldersToMove = await prisma.documentFolder.findMany({
+        where: {
+          id: { in: bulkData.folderIds },
+          organizationId: user.orgId
+        }
+      })
+
+      if (foldersToMove.length !== bulkData.folderIds.length) {
+        return createErrorResponse('FOLDERS_NOT_FOUND', 'Some folders were not found', 400)
+      }
+
+      // Check for circular references and name conflicts
+      for (const folder of foldersToMove) {
+        if (await isDescendant(folder.id, bulkData.targetFolderId)) {
+          return createErrorResponse('CIRCULAR_REFERENCE', `Cannot move folder "${folder.name}" to its own descendant`, 400)
+        }
+
+        if (await checkFolderNameConflict(user.orgId, folder.name, bulkData.targetFolderId)) {
+          return createErrorResponse('NAME_CONFLICT', `A folder named "${folder.name}" already exists in the target location`, 409)
+        }
+      }
+
+      // Perform bulk move
+      const targetFolder = await prisma.documentFolder.findUnique({
+        where: { id: bulkData.targetFolderId },
+        select: { path: true }
+      })
+
+      await prisma.$transaction(async (tx) => {
+        for (const folder of foldersToMove) {
+          const newPath = buildFolderPath(targetFolder!.path, folder.name)
+          
+          await tx.documentFolder.update({
+            where: { id: folder.id },
+            data: {
+              parentId: bulkData.targetFolderId,
+              path: newPath
+            }
+          })
+
+          // Update children paths
+          await updateChildrenPaths(folder.id, newPath)
+        }
+      })
+
+      return createSuccessResponse({ 
+        message: `Successfully moved ${bulkData.folderIds.length} folders`,
+        movedFolders: bulkData.folderIds
+      })
+    }
+
+    if (bulkData.operation === 'delete') {
+      // Validate all folders can be deleted
+      const foldersToDelete = await prisma.documentFolder.findMany({
+        where: {
+          id: { in: bulkData.folderIds },
+          organizationId: user.orgId
+        },
+        include: {
+          _count: {
+            select: {
+              children: true,
+              documents: { where: { isDeleted: false } }
+            }
+          }
+        }
+      })
+
+      const nonEmptyFolders = foldersToDelete.filter(f => 
+        f._count.children > 0 || f._count.documents > 0
+      )
+
+      if (nonEmptyFolders.length > 0) {
+        return createErrorResponse('FOLDERS_NOT_EMPTY', 
+          `Cannot delete non-empty folders: ${nonEmptyFolders.map(f => f.name).join(', ')}`, 400)
+      }
+
+      // Perform bulk delete
+      await prisma.documentFolder.deleteMany({
+        where: {
+          id: { in: bulkData.folderIds },
+          organizationId: user.orgId
+        }
+      })
+
+      return createSuccessResponse({ 
+        message: `Successfully deleted ${bulkData.folderIds.length} folders`,
+        deletedFolders: bulkData.folderIds
+      })
+    }
+
+    return createErrorResponse('INVALID_OPERATION', 'Invalid bulk operation', 400)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return createErrorResponse('VALIDATION_ERROR', 'Invalid bulk operation data', 400, error.issues)
+    }
+    if (error instanceof Error) {
+      if (error.message === 'Folder not found') {
+        return createErrorResponse('FOLDER_NOT_FOUND', 'Folder not found', 404)
+      }
+      if (error.message === 'Insufficient permissions') {
+        return createErrorResponse('INSUFFICIENT_PERMISSIONS', 'Insufficient permissions for bulk operation', 403)
+      }
+    }
+    return createErrorResponse('BULK_OPERATION_FAILED', 'Failed to perform bulk operation', 500)
   }
 }

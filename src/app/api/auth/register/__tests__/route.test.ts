@@ -1,223 +1,454 @@
-import 'whatwg-fetch'
-import { hashPassword, validatePasswordStrength, validateEmail } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { POST } from '../route'
+import prisma from '@/lib/prisma'
+import { hashPassword, validatePasswordStrength, validateEmail, createSessionToken } from '@/lib/auth'
 import { UserRole } from '@/types'
+import { createMockUser, createMockOrganization } from '@/test-utils'
 
-// Mock Prisma
-const mockPrisma = {
+// Mock dependencies
+jest.mock('@/lib/prisma', () => ({
+  organization: {
+    findUnique: jest.fn(),
+  },
   user: {
     findUnique: jest.fn(),
-    create: jest.fn()
-  },
-  organization: {
-    findUnique: jest.fn()
+    create: jest.fn(),
   },
   auditLog: {
-    create: jest.fn()
+    create: jest.fn(),
+  },
+}))
+
+jest.mock('@/lib/auth', () => ({
+  hashPassword: jest.fn(),
+  validatePasswordStrength: jest.fn(),
+  validateEmail: jest.fn(),
+  createSessionToken: jest.fn(),
+}))
+
+const mockPrisma = prisma as jest.Mocked<typeof prisma>
+const mockHashPassword = hashPassword as jest.MockedFunction<typeof hashPassword>
+const mockValidatePasswordStrength = validatePasswordStrength as jest.MockedFunction<typeof validatePasswordStrength>
+const mockValidateEmail = validateEmail as jest.MockedFunction<typeof validateEmail>
+const mockCreateSessionToken = createSessionToken as jest.MockedFunction<typeof createSessionToken>
+
+describe('/api/auth/register', () => {
+  const validRegistrationData = {
+    email: 'newuser@example.com',
+    password: 'SecurePass123!',
+    firstName: 'John',
+    lastName: 'Doe',
+    organizationId: 'org-1',
+    role: UserRole.ASSOCIATE,
+    deviceId: 'device-123'
   }
-}
 
-jest.mock('@/lib/prisma', () => mockPrisma)
-
-// Mock crypto
-Object.defineProperty(global, 'crypto', {
-  value: {
-    randomUUID: () => 'test-uuid'
-  }
-})
-
-describe('Registration Authentication Logic', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
+  const mockOrganization = createMockOrganization({
+    id: 'org-1',
+    name: 'Test Organization'
   })
 
-  describe('Input Validation', () => {
-    it('should validate email format correctly', () => {
-      expect(validateEmail('test@example.com')).toBe(true)
-      expect(validateEmail('invalid-email')).toBe(false)
-      expect(validateEmail('test@')).toBe(false)
-      expect(validateEmail('@example.com')).toBe(false)
-    })
-
-    it('should validate password strength correctly', () => {
-      const strongPassword = 'TestPassword123!'
-      const weakPassword = '123'
-      
-      const strongValidation = validatePasswordStrength(strongPassword)
-      expect(strongValidation.isValid).toBe(true)
-      expect(strongValidation.errors).toHaveLength(0)
-      
-      const weakValidation = validatePasswordStrength(weakPassword)
-      expect(weakValidation.isValid).toBe(false)
-      expect(weakValidation.errors.length).toBeGreaterThan(0)
-    })
-
-    it('should normalize email to lowercase', () => {
-      const email = 'Test@EXAMPLE.COM'
-      const normalizedEmail = email.toLowerCase()
-      
-      expect(normalizedEmail).toBe('test@example.com')
-    })
-
-    it('should validate required fields', () => {
-      const requiredFields = ['email', 'password', 'firstName', 'lastName', 'organizationId', 'role']
-      const validData = createValidRegistrationData()
-      
-      validateRequiredFields(requiredFields, validData)
-    })
-  })
-
-  describe('Password Management', () => {
-    it('should hash password correctly', async () => {
-      const password = 'TestPassword123!'
-      const hash = await hashPassword(password)
-      
-      expect(hash).toBeDefined()
-      expect(hash).not.toBe(password)
-      expect(hash.length).toBeGreaterThan(50) // bcrypt hashes are typically 60 chars
-    })
-  })
-
-  describe('Organization Verification', () => {
-    it('should check if organization exists', async () => {
-      const organizationId = 'org-123'
-      const mockOrganization = {
-        id: organizationId,
-        name: 'Test Organization',
-        subdomain: 'test'
-      }
-      
-      mockPrisma.organization.findUnique.mockResolvedValue(mockOrganization)
-      
-      const organization = await mockPrisma.organization.findUnique({
-        where: { id: organizationId }
-      })
-      
-      expect(organization).toEqual(mockOrganization)
-      expect(mockPrisma.organization.findUnique).toHaveBeenCalledWith({
-        where: { id: organizationId }
-      })
-    })
-  })
-
-  describe('User Management', () => {
-    it('should check if user already exists', async () => {
-      const email = 'test@example.com'
-      
-      // Test when user doesn't exist
-      mockPrisma.user.findUnique.mockResolvedValue(null)
-      
-      const user = await mockPrisma.user.findUnique({
-        where: { email: email.toLowerCase() }
-      })
-      
-      expect(user).toBeNull()
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: email.toLowerCase() }
-      })
-    })
-
-    it('should create new user successfully', async () => {
-      const userData = createUserData()
-      const mockCreatedUser = createMockCreatedUser(userData)
-      
-      mockPrisma.user.create.mockResolvedValue(mockCreatedUser)
-      
-      const createdUser = await mockPrisma.user.create({
-        data: userData
-      })
-      
-      expect(createdUser).toEqual(mockCreatedUser)
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: userData
-      })
-    })
-
-    it('should validate user roles', () => {
-      const validRoles = Object.values(UserRole)
-      
-      expect(validRoles).toContain(UserRole.PARTNER)
-      expect(validRoles).toContain(UserRole.MANAGER)
-      expect(validRoles).toContain(UserRole.ASSOCIATE)
-      expect(validRoles).toContain(UserRole.INTERN)
-      expect(validRoles).toContain(UserRole.ADMIN)
-      
-      expect(validRoles.includes('INVALID_ROLE' as UserRole)).toBe(false)
-    })
-  })
-
-  describe('Audit Logging', () => {
-    it('should create audit log for registration', async () => {
-      const auditData = createRegistrationAuditData()
-      
-      mockPrisma.auditLog.create.mockResolvedValue({})
-      
-      await mockPrisma.auditLog.create({
-        data: auditData
-      })
-      
-      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
-        data: auditData
-      })
-    })
-  })
-})
-
-// Helper functions
-function createUserData() {
-  return {
-    email: 'test@example.com',
-    passwordHash: 'hashed-password',
+  const mockCreatedUser = createMockUser({
+    id: 'user-1',
+    email: 'newuser@example.com',
     firstName: 'John',
     lastName: 'Doe',
     role: UserRole.ASSOCIATE,
-    organizationId: 'org-123',
-    isActive: true
-  }
-}
-
-function createMockCreatedUser(userData: ReturnType<typeof createUserData>) {
-  return {
-    id: 'user-123',
-    ...userData,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  }
-}
-
-function createRegistrationAuditData() {
-  return {
-    organizationId: 'org-123',
-    userId: 'user-123',
-    action: 'register',
-    resourceType: 'user',
-    resourceId: 'user-123',
-    newValues: {
-      email: 'test@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      role: UserRole.ASSOCIATE,
-      deviceId: 'device-123',
-      ip: '127.0.0.1'
-    },
-    ipAddress: '127.0.0.1',
-    userAgent: 'test-agent'
-  }
-}
-
-function createValidRegistrationData() {
-  return {
-    email: 'test@example.com',
-    password: 'TestPassword123!',
-    firstName: 'John',
-    lastName: 'Doe',
-    organizationId: 'org-123',
-    role: UserRole.ASSOCIATE
-  }
-}
-
-function validateRequiredFields(fields: string[], data: ReturnType<typeof createValidRegistrationData>) {
-  fields.forEach(field => {
-    expect(data[field as keyof typeof data]).toBeDefined()
-    expect(data[field as keyof typeof data]).not.toBe('')
+    organizationId: 'org-1'
   })
-}
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockValidateEmail.mockReturnValue(true)
+    mockValidatePasswordStrength.mockReturnValue({ isValid: true, errors: [] })
+    mockHashPassword.mockResolvedValue('hashed-password')
+    mockCreateSessionToken.mockReturnValue('mock-jwt-token')
+  })
+
+  describe('successful registration', () => {
+    beforeEach(() => {
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrganization)
+      mockPrisma.user.findUnique.mockResolvedValue(null) // No existing user
+      mockPrisma.user.create.mockResolvedValue(mockCreatedUser)
+      mockPrisma.auditLog.create.mockResolvedValue({} as any)
+    })
+
+    it('should register user successfully with valid data', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData),
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': '192.168.1.1',
+          'user-agent': 'test-agent'
+        }
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(201)
+      expect(data.success).toBe(true)
+      expect(data.data.user).toEqual({
+        id: mockCreatedUser.id,
+        email: mockCreatedUser.email,
+        firstName: mockCreatedUser.firstName,
+        lastName: mockCreatedUser.lastName,
+        role: mockCreatedUser.role,
+        organizationId: mockCreatedUser.organizationId
+      })
+      expect(data.data.token).toBe('mock-jwt-token')
+      expect(data.data.expiresAt).toBeGreaterThan(Date.now())
+    })
+
+    it('should hash password before storing', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      await POST(request)
+
+      expect(mockHashPassword).toHaveBeenCalledWith('SecurePass123!')
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: {
+          email: 'newuser@example.com',
+          passwordHash: 'hashed-password',
+          firstName: 'John',
+          lastName: 'Doe',
+          role: UserRole.ASSOCIATE,
+          organizationId: 'org-1',
+          isActive: true
+        }
+      })
+    })
+
+    it('should normalize email to lowercase', async () => {
+      const upperCaseEmailData = {
+        ...validRegistrationData,
+        email: 'NEWUSER@EXAMPLE.COM'
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(upperCaseEmailData)
+      })
+
+      await POST(request)
+
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          email: 'newuser@example.com'
+        })
+      })
+    })
+
+    it('should create audit log entry', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData),
+        headers: {
+          'x-forwarded-for': '192.168.1.1',
+          'user-agent': 'test-agent'
+        }
+      })
+
+      await POST(request)
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: 'org-1',
+          userId: 'user-1',
+          action: 'register',
+          resourceType: 'user',
+          resourceId: 'user-1',
+          newValues: {
+            email: 'newuser@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            role: UserRole.ASSOCIATE,
+            deviceId: 'device-123',
+            ip: '192.168.1.1'
+          },
+          ipAddress: '192.168.1.1',
+          userAgent: 'test-agent'
+        }
+      })
+    })
+
+    it('should set auth cookie in response', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const setCookieHeader = response.headers.get('Set-Cookie')
+
+      expect(setCookieHeader).toContain('auth-token=mock-jwt-token')
+      expect(setCookieHeader).toContain('HttpOnly')
+      expect(setCookieHeader).toContain('Secure')
+      expect(setCookieHeader).toContain('SameSite=Strict')
+    })
+  })
+
+  describe('validation errors', () => {
+    beforeEach(() => {
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrganization)
+      mockPrisma.user.findUnique.mockResolvedValue(null)
+    })
+
+    it('should return 400 for invalid email format', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validRegistrationData,
+          email: 'invalid-email'
+        })
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    it('should return 400 for short password', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validRegistrationData,
+          password: '123'
+        })
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    it('should return 400 for missing required fields', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          password: 'SecurePass123!'
+          // Missing firstName, lastName, organizationId, role
+        })
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    it('should return 400 for invalid role', async () => {
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validRegistrationData,
+          role: 'INVALID_ROLE'
+        })
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    it('should return 400 for weak password', async () => {
+      mockValidatePasswordStrength.mockReturnValue({
+        isValid: false,
+        errors: ['Password must contain uppercase letter', 'Password must contain special character']
+      })
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+      expect(data.error.message).toBe('Password does not meet requirements')
+      expect(data.error.details).toEqual(['Password must contain uppercase letter', 'Password must contain special character'])
+    })
+
+    it('should return 400 for invalid email format (auth validation)', async () => {
+      mockValidateEmail.mockReturnValue(false)
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+      expect(data.error.message).toBe('Invalid email format')
+    })
+  })
+
+  describe('business logic errors', () => {
+    it('should return 404 for non-existent organization', async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue(null)
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(404)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('NOT_FOUND')
+      expect(data.error.message).toBe('Organization not found')
+    })
+
+    it('should return 409 for existing user email', async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrganization)
+      mockPrisma.user.findUnique.mockResolvedValue(mockCreatedUser) // Existing user
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(409)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('CONFLICT')
+      expect(data.error.message).toBe('User with this email already exists')
+    })
+  })
+
+  describe('database errors', () => {
+    it('should handle database connection errors', async () => {
+      mockPrisma.organization.findUnique.mockRejectedValue(new Error('Database connection failed'))
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('INTERNAL_ERROR')
+    })
+
+    it('should handle user creation failure', async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrganization)
+      mockPrisma.user.findUnique.mockResolvedValue(null)
+      mockPrisma.user.create.mockRejectedValue(new Error('User creation failed'))
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(validRegistrationData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('INTERNAL_ERROR')
+    })
+  })
+
+  describe('edge cases', () => {
+    beforeEach(() => {
+      mockPrisma.organization.findUnique.mockResolvedValue(mockOrganization)
+      mockPrisma.user.findUnique.mockResolvedValue(null)
+      mockPrisma.user.create.mockResolvedValue(mockCreatedUser)
+      mockPrisma.auditLog.create.mockResolvedValue({} as any)
+    })
+
+    it('should handle registration without deviceId', async () => {
+      const registrationDataWithoutDevice = {
+        email: 'newuser@example.com',
+        password: 'SecurePass123!',
+        firstName: 'John',
+        lastName: 'Doe',
+        organizationId: 'org-1',
+        role: UserRole.ASSOCIATE
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(registrationDataWithoutDevice)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(201)
+      expect(data.success).toBe(true)
+      expect(mockCreateSessionToken).toHaveBeenCalledWith(
+        expect.any(Object),
+        undefined
+      )
+    })
+
+    it('should handle long names within limits', async () => {
+      const longNameData = {
+        ...validRegistrationData,
+        firstName: 'A'.repeat(100),
+        lastName: 'B'.repeat(100)
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(longNameData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(201)
+      expect(data.success).toBe(true)
+    })
+
+    it('should reject names exceeding limits', async () => {
+      const tooLongNameData = {
+        ...validRegistrationData,
+        firstName: 'A'.repeat(101)
+      }
+
+      const request = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(tooLongNameData)
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.success).toBe(false)
+      expect(data.error.code).toBe('VALIDATION_ERROR')
+    })
+  })
+})

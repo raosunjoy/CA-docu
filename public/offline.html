@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Zetra Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .offline-container {
+            background: white;
+            border-radius: 16px;
+            padding: 48px 32px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 480px;
+            width: 90%;
+            margin: 20px;
+        }
+
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: #f3f4f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .offline-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+
+        .offline-message {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #6b7280;
+            margin-bottom: 32px;
+        }
+
+        .offline-features {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+
+        .offline-features h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1f2937;
+            text-align: center;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #4b5563;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        .offline-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+            transform: translateY(-1px);
+        }
+
+        .connection-status {
+            margin-top: 24px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-offline {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .status-online {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        .sync-info {
+            margin-top: 16px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        @media (max-width: 480px) {
+            .offline-container {
+                padding: 32px 24px;
+            }
+            
+            .offline-title {
+                font-size: 24px;
+            }
+            
+            .offline-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon">
+            📱
+        </div>
+        
+        <h1 class="offline-title">You're Offline</h1>
+        
+        <p class="offline-message">
+            Don't worry! You can still access your cached documents and continue working. 
+            Your changes will be automatically synced when you're back online.
+        </p>
+
+        <div class="offline-features">
+            <h3>Available Offline</h3>
+            <ul class="feature-list">
+                <li>View cached documents</li>
+                <li>Add annotations and comments</li>
+                <li>Create and edit tasks</li>
+                <li>Search cached content</li>
+                <li>Access recent files</li>
+            </ul>
+        </div>
+
+        <div class="offline-actions">
+            <button class="btn btn-primary" onclick="checkConnection()">
+                <span class="loading" id="loading" style="display: none;"></span>
+                <span id="retry-text">Check Connection</span>
+            </button>
+            <a href="/documents" class="btn btn-secondary">
+                View Cached Documents
+            </a>
+        </div>
+
+        <div class="connection-status status-offline" id="connection-status">
+            <strong>Offline:</strong> No internet connection detected
+        </div>
+
+        <div class="sync-info" id="sync-info">
+            Your offline changes will be synced automatically when connection is restored.
+        </div>
+    </div>
+
+    <script>
+        let isOnline = navigator.onLine;
+        let retryAttempts = 0;
+        const maxRetryAttempts = 3;
+
+        // Update connection status
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connection-status');
+            const syncInfo = document.getElementById('sync-info');
+            
+            if (isOnline) {
+                statusElement.className = 'connection-status status-online';
+                statusElement.innerHTML = '<strong>Online:</strong> Connection restored';
+                syncInfo.textContent = 'Syncing your offline changes...';
+                
+                // Redirect to main app after a short delay
+                setTimeout(() => {
+                    window.location.href = '/documents';
+                }, 2000);
+            } else {
+                statusElement.className = 'connection-status status-offline';
+                statusElement.innerHTML = '<strong>Offline:</strong> No internet connection detected';
+                syncInfo.textContent = 'Your offline changes will be synced automatically when connection is restored.';
+            }
+        }
+
+        // Check connection
+        async function checkConnection() {
+            const loadingElement = document.getElementById('loading');
+            const retryText = document.getElementById('retry-text');
+            
+            loadingElement.style.display = 'inline-block';
+            retryText.textContent = 'Checking...';
+            
+            try {
+                // Try to fetch a small resource to test connectivity
+                const response = await fetch('/api/health', {
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                });
+                
+                if (response.ok) {
+                    isOnline = true;
+                    retryAttempts = 0;
+                } else {
+                    throw new Error('Server not reachable');
+                }
+            } catch (error) {
+                isOnline = false;
+                retryAttempts++;
+                
+                if (retryAttempts < maxRetryAttempts) {
+                    retryText.textContent = `Retry (${retryAttempts}/${maxRetryAttempts})`;
+                } else {
+                    retryText.textContent = 'Still Offline';
+                }
+            } finally {
+                loadingElement.style.display = 'none';
+                if (retryAttempts === 0 || retryAttempts >= maxRetryAttempts) {
+                    retryText.textContent = 'Check Connection';
+                }
+                updateConnectionStatus();
+            }
+        }
+
+        // Listen for online/offline events
+        window.addEventListener('online', () => {
+            isOnline = true;
+            retryAttempts = 0;
+            updateConnectionStatus();
+        });
+
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            updateConnectionStatus();
+        });
+
+        // Periodic connection check
+        setInterval(() => {
+            if (!isOnline && retryAttempts < maxRetryAttempts) {
+                checkConnection();
+            }
+        }, 30000); // Check every 30 seconds
+
+        // Initialize
+        updateConnectionStatus();
+
+        // Register service worker if not already registered
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registered:', registration);
+                })
+                .catch((error) => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
+
+        // Handle service worker updates
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html>

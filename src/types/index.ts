@@ -30,7 +30,11 @@ export {
   ChannelType,
   MessageType,
   DocumentType,
-  DocumentStatus
+  DocumentStatus,
+  ApprovalStatus,
+  ApprovalDecision,
+  TimeEntryStatus,
+  TimeEntryType
 } from '../../generated/prisma'
 
 // Additional types for API responses
@@ -74,6 +78,10 @@ export interface PaginatedResponse<T> {
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'COMPLETED' | 'CANCELLED'
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 type UserRole = 'PARTNER' | 'MANAGER' | 'ASSOCIATE' | 'INTERN' | 'ADMIN'
+type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DELEGATED' | 'CANCELLED'
+type ApprovalDecision = 'APPROVE' | 'REJECT' | 'DELEGATE' | 'REQUEST_CHANGES'
+type TimeEntryStatus = 'RUNNING' | 'STOPPED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+type TimeEntryType = 'WORK' | 'BREAK' | 'MEETING' | 'TRAVEL' | 'ADMIN'
 type Tag = {
   id: string
   organizationId: string
@@ -130,6 +138,147 @@ export interface UpdateTaskData {
   estimatedHours?: number
   actualHours?: number
   metadata?: Record<string, unknown>
+  requiresApproval?: boolean
+  approvalStatus?: ApprovalStatus
+}
+
+// Approval Workflow Types
+export interface ApprovalStep {
+  stepNumber: number
+  name: string
+  description?: string
+  approverRoles: UserRole[]
+  approverIds?: string[]
+  conditions?: ApprovalCondition[]
+  isParallel?: boolean
+  requiredApprovals?: number
+  autoApprove?: boolean
+  timeoutHours?: number
+}
+
+export interface ApprovalCondition {
+  field: string
+  operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'in'
+  value: any
+}
+
+export interface ApprovalWorkflowData {
+  name: string
+  description?: string
+  steps: ApprovalStep[]
+  taskId: string
+}
+
+export interface ApprovalRequestData {
+  workflowId: string
+  taskId: string
+  stepNumber: number
+  approverId: string
+  expiresAt?: Date
+  comments?: string
+}
+
+export interface ApprovalDecisionData {
+  decision: ApprovalDecision
+  comments?: string
+  delegateToId?: string
+}
+
+export interface ApprovalTemplateData {
+  name: string
+  description?: string
+  category?: string
+  conditions: ApprovalCondition[]
+  steps: ApprovalStep[]
+  isDefault?: boolean
+}
+
+export interface ApprovalDelegateData {
+  delegateId: string
+  startDate: Date
+  endDate?: Date
+  conditions?: ApprovalCondition[]
+}
+
+// Time Tracking Types
+export interface TimeEntryData {
+  taskId?: string
+  projectId?: string
+  clientId?: string
+  description?: string
+  startTime: Date
+  endTime?: Date
+  type: TimeEntryType
+  isBillable?: boolean
+  hourlyRate?: number
+  tags?: string[]
+}
+
+export interface TimeEntryUpdateData {
+  description?: string
+  endTime?: Date
+  type?: TimeEntryType
+  isBillable?: boolean
+  hourlyRate?: number
+  tags?: string[]
+}
+
+export interface TimeBudgetData {
+  name: string
+  description?: string
+  taskId?: string
+  projectId?: string
+  clientId?: string
+  userId?: string
+  budgetHours: number
+  startDate: Date
+  endDate: Date
+  alertThreshold?: number
+}
+
+export interface TimeReportData {
+  name: string
+  description?: string
+  reportType: 'timesheet' | 'productivity' | 'billing' | 'project'
+  startDate: Date
+  endDate: Date
+  filters: Record<string, any>
+  isScheduled?: boolean
+  scheduleConfig?: Record<string, any>
+}
+
+export interface ProductivityMetricData {
+  userId: string
+  date: Date
+  totalHours: number
+  billableHours: number
+  tasksCompleted: number
+  focusScore?: number
+  efficiencyScore?: number
+  utilizationRate?: number
+}
+
+export interface TimeTrackingFilters {
+  userId?: string
+  taskId?: string
+  projectId?: string
+  clientId?: string
+  status?: TimeEntryStatus[]
+  type?: TimeEntryType[]
+  isBillable?: boolean
+  startDate?: Date
+  endDate?: Date
+  tags?: string[]
+}
+
+export interface TimeTrackingSummary {
+  totalHours: number
+  billableHours: number
+  nonBillableHours: number
+  totalAmount: number
+  entriesCount: number
+  averageHoursPerDay: number
+  productivityScore: number
 }
 
 // Document-related types
@@ -275,6 +424,159 @@ export interface DashboardWidgetConfig {
 
 export interface DashboardLayout {
   widgets: DashboardWidgetConfig[]
+}
+
+// Recurring Task and Automation Types
+export type RecurrencePattern = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM'
+export type RecurrenceEndType = 'NEVER' | 'AFTER_OCCURRENCES' | 'ON_DATE'
+export type TriggerType = 'DEADLINE_APPROACHING' | 'TASK_OVERDUE' | 'TASK_COMPLETED' | 'TASK_CREATED' | 'WORKLOAD_THRESHOLD' | 'TIME_BASED' | 'STATUS_CHANGE'
+export type ActionType = 'ASSIGN_TASK' | 'ESCALATE_TASK' | 'CREATE_TASK' | 'SEND_NOTIFICATION' | 'UPDATE_PRIORITY' | 'ADD_COMMENT' | 'DELEGATE_APPROVAL'
+
+export interface RecurringTaskData {
+  title: string
+  description?: string
+  priority?: TaskPriority
+  assignedTo?: string
+  pattern: RecurrencePattern
+  interval?: number
+  daysOfWeek?: number[]
+  dayOfMonth?: number
+  monthsOfYear?: number[]
+  customCron?: string
+  startDate: Date
+  endType?: RecurrenceEndType
+  endDate?: Date
+  maxOccurrences?: number
+  estimatedHours?: number
+  requiresApproval?: boolean
+  templateData?: Record<string, any>
+}
+
+export interface RecurringTaskUpdateData {
+  title?: string
+  description?: string
+  priority?: TaskPriority
+  assignedTo?: string
+  pattern?: RecurrencePattern
+  interval?: number
+  daysOfWeek?: number[]
+  dayOfMonth?: number
+  monthsOfYear?: number[]
+  customCron?: string
+  endType?: RecurrenceEndType
+  endDate?: Date
+  maxOccurrences?: number
+  estimatedHours?: number
+  requiresApproval?: boolean
+  templateData?: Record<string, any>
+  isActive?: boolean
+  isPaused?: boolean
+}
+
+export interface AutomationRuleData {
+  name: string
+  description?: string
+  triggerType: TriggerType
+  triggerConfig: Record<string, any>
+  conditions: AutomationCondition[]
+  actions: AutomationAction[]
+  priority?: number
+  cooldownMinutes?: number
+  maxExecutions?: number
+}
+
+export interface AutomationCondition {
+  field: string
+  operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'in' | 'exists'
+  value: any
+  logicalOperator?: 'AND' | 'OR'
+}
+
+export interface AutomationAction {
+  type: ActionType
+  config: Record<string, any>
+  order: number
+}
+
+export interface AutomationTriggerData {
+  ruleId: string
+  taskId?: string
+  triggerData: Record<string, any>
+  scheduledFor?: Date
+}
+
+export interface WorkloadMetricData {
+  userId: string
+  date: Date
+  activeTasks: number
+  overdueTasks: number
+  completedTasks: number
+  totalHours: number
+  availableHours: number
+  utilizationRate: number
+  avgCompletionTime?: number
+  qualityScore?: number
+  specializations?: string[]
+}
+
+export interface EscalationRuleData {
+  name: string
+  description?: string
+  conditions: EscalationCondition[]
+  levels: EscalationLevel[]
+  priority?: number
+}
+
+export interface EscalationCondition {
+  field: string
+  operator: string
+  value: any
+  unit?: string // 'hours', 'days', etc.
+}
+
+export interface EscalationLevel {
+  level: number
+  name: string
+  triggerAfter: number // Hours after previous level
+  actions: EscalationAction[]
+}
+
+export interface EscalationAction {
+  type: 'notify' | 'reassign' | 'escalate_priority' | 'add_comment' | 'delegate'
+  config: Record<string, any>
+}
+
+export interface TaskSuggestionData {
+  userId: string
+  type: 'recurring' | 'similar' | 'workload' | 'deadline'
+  title: string
+  description?: string
+  confidence: number
+  suggestedData: Record<string, any>
+  reasoning: Record<string, any>
+  expiresAt?: Date
+}
+
+export interface TaskAssignmentSuggestion {
+  userId: string
+  userName: string
+  confidence: number
+  reasoning: string[]
+  workloadScore: number
+  skillMatch: number
+  availabilityScore: number
+}
+
+export interface SmartTaskSuggestion {
+  id: string
+  type: string
+  title: string
+  description?: string
+  confidence: number
+  suggestedData: Record<string, any>
+  reasoning: string[]
+  expiresAt?: Date
+  status: 'pending' | 'accepted' | 'rejected' | 'expired'
 }
 
 // Utility types
