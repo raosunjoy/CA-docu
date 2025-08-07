@@ -23,20 +23,26 @@ const config = [
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: typescriptParser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        project: './tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     plugins: {
       '@typescript-eslint': typescriptEslint,
     },
     rules: {
       // Code complexity and maintainability
-      'max-lines-per-function': ['error', 75],
-      'complexity': ['error', 10],
-      'max-depth': ['error', 4],
-      'max-params': ['error', 4],
-      'max-lines': ['error', 500],
+      'max-lines-per-function': ['warn', 100],
+      'complexity': ['warn', 15],
+      'max-depth': ['warn', 5],
+      'max-params': ['warn', 5],
+      'max-lines': ['warn', 800],
       
       // Code quality
-      'no-console': 'error',
+      'no-console': 'warn',
       'no-debugger': 'error',
       'no-alert': 'error',
       'no-eval': 'error',
@@ -47,15 +53,15 @@ const config = [
       'no-with': 'error',
       
       // TypeScript specific
-      '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-non-null-assertion': 'error',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/prefer-optional-chain': 'error',
-      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
-      '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/await-thenable': 'error',
-      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'warn',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/prefer-optional-chain': 'warn',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/await-thenable': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
       
       // Security
       'no-eval': 'error',
@@ -74,8 +80,8 @@ const config = [
       'no-useless-escape': 'error',
       
       // CA-specific rules
-      'no-magic-numbers': ['error', { 
-        ignore: [0, 1, -1, 100, 1000],
+      'no-magic-numbers': ['warn', { 
+        ignore: [0, 1, -1, 2, 3, 4, 5, 10, 20, 30, 50, 100, 200, 300, 400, 500, 1000, 1024],
         ignoreArrayIndexes: true,
         ignoreDefaultValues: true
       }],

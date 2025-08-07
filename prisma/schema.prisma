@@ -107,7 +107,9 @@ model Organization {
   emails     Email[]
   emailTemplates EmailTemplate[]
   chatChannels ChatChannel[]
-  auditLogs  AuditLog[]
+  auditLogs     AuditLog[]
+  auditPolicies AuditPolicy[]
+  auditReports  AuditReport[]
   
   // Approval workflow relations
   approvalWorkflows ApprovalWorkflow[]
@@ -127,6 +129,18 @@ model Organization {
   workloadMetrics   WorkloadMetric[]
   escalationRules   EscalationRule[]
   taskSuggestions   TaskSuggestion[]
+  
+  // Client portal relations
+  clients           Client[]
+  clientEngagements ClientEngagement[]
+  clientDocumentRequests ClientDocumentRequest[]
+  clientDocuments   ClientDocument[]
+  clientMessages    ClientMessage[]
+  clientNotifications ClientNotification[]
+  clientFeedbacks   ClientFeedback[]
+  clientMeetings    ClientMeeting[]
+  clientInvoices    ClientInvoice[]
+  clientProgressUpdates ClientProgressUpdate[]
 
   @@map("organizations")
 }
@@ -202,6 +216,11 @@ model User {
   notifications          Notification[]   @relation("UserNotifications")
   notificationPreferences NotificationPreferences? @relation("UserNotificationPreferences")
   pushSubscriptions      PushSubscription[] @relation("UserPushSubscriptions")
+  
+  // Cross-device sync relations
+  syncDevices            SyncDevice[]     @relation("UserSyncDevices")
+  syncData               SyncData[]       @relation("UserSyncData")
+  syncConflicts          SyncConflict[]   @relation("UserSyncConflicts")
 
   @@index([organizationId])
   @@index([email])
@@ -296,6 +315,9 @@ model Task {
   // Automation relations
   automationTriggers AutomationTrigger[]
   escalationLogs     EscalationLog[]
+  
+  // Client portal relations
+  clientEngagementTasks ClientEngagementTask[]
 
   @@index([organizationId])
   @@index([assignedTo])
@@ -824,7 +846,8 @@ model PushSubscription {
   id       String @id @default(cuid())
   userId   String
   endpoint String
-  keys     Json   // Contains p256dh and auth keys
+  p256dh   String // Public key for encryption
+  auth     String // Authentication secret
   userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -837,29 +860,221 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
-// Audit Trail
+// Enhanced Audit Trail System
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  SHARE
+  DOWNLOAD
+  UPLOAD
+  APPROVE
+  REJECT
+  ASSIGN
+  UNASSIGN
+  ARCHIVE
+  RESTORE
+  SYNC
+  BACKUP
+  RESTORE_BACKUP
+}
+
+enum AuditSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AuditCategory {
+  AUTHENTICATION
+  AUTHORIZATION
+  DATA_ACCESS
+  DATA_MODIFICATION
+  SYSTEM_ADMIN
+  COMPLIANCE
+  SECURITY
+  INTEGRATION
+  BACKUP_RECOVERY
+}
+
 model AuditLog {
-  id           String   @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  userId       String?
-  action       String   // 'create', 'update', 'delete', 'view'
-  resourceType String   // 'task', 'document', etc.
-  resourceId   String
-  oldValues    Json?
-  newValues    Json?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
+  userId         String?
+  sessionId      String?       // Session identifier
+  
+  // Action details
+  action         AuditAction
+  category       AuditCategory
+  severity       AuditSeverity @default(LOW)
+  description    String
+  
+  // Resource information
+  resourceType   String        // 'task', 'document', 'user', etc.
+  resourceId     String?
+  resourceName   String?       // Human-readable resource name
+  
+  // Change tracking
+  oldValues      Json?         // Previous state (encrypted if sensitive)
+  newValues      Json?         // New state (encrypted if sensitive)
+  changesSummary String?       // Human-readable summary of changes
+  
+  // Context information
+  ipAddress      String?
+  userAgent      String?
+  deviceId       String?
+  location       String?       // Geo-location if available
+  
+  // Request context
+  requestId      String?       // Correlation ID for request tracing
+  endpoint       String?       // API endpoint or page accessed
+  method         String?       // HTTP method
+  
+  // Compliance and security
+  complianceFlags String[]     @default([]) // Regulatory compliance markers
+  riskScore      Int?          // Risk assessment score (0-100)
+  
+  // Metadata
+  metadata       Json          @default("{}")
+  tags           String[]      @default([])
+  
+  // Immutability and integrity
+  checksum       String?       // Hash for integrity verification
+  previousLogId  String?       // Chain to previous log for integrity
+  
+  // Timestamps
+  occurredAt     DateTime      // When the actual event occurred
+  createdAt      DateTime      @default(now())
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User?        @relation("AuditUser", fields: [userId], references: [id])
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?         @relation("AuditUser", fields: [userId], references: [id])
+  
+  // Self-referential for log chaining
+  previousLog    AuditLog?     @relation("AuditChain", fields: [previousLogId], references: [id])
+  nextLogs       AuditLog[]    @relation("AuditChain")
 
   @@index([organizationId])
   @@index([userId])
+  @@index([sessionId])
+  @@index([action])
+  @@index([category])
+  @@index([severity])
   @@index([resourceType, resourceId])
+  @@index([occurredAt])
   @@index([createdAt])
+  @@index([complianceFlags])
+  @@index([riskScore])
+  @@index([checksum])
   @@map("audit_logs")
+}
+
+// Audit Log Search Index for complex queries
+model AuditLogIndex {
+  id             String   @id @default(cuid())
+  auditLogId     String   @unique
+  searchableText String   // Concatenated searchable fields
+  keywords       String[] // Extracted keywords for search
+  createdAt      DateTime @default(now())
+
+  @@index([searchableText])
+  @@index([keywords])
+  @@map("audit_log_index")
+}
+
+// Audit Configuration and Policies
+model AuditPolicy {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  
+  // Policy configuration
+  resourceTypes  String[] // Which resource types to audit
+  actions        String[] // Which actions to audit
+  categories     String[] // Which categories to audit
+  
+  // Retention and archival
+  retentionDays  Int      @default(2555) // ~7 years default
+  archiveAfterDays Int?   // Archive to cold storage after X days
+  
+  // Compliance settings
+  complianceRequired Boolean @default(false)
+  encryptSensitiveData Boolean @default(true)
+  requireIntegrityCheck Boolean @default(true)
+  
+  // Alert settings
+  alertOnHighRisk Boolean @default(true)
+  alertThreshold  Int     @default(75) // Risk score threshold
+  
+  // Status
+  isActive       Boolean  @default(true)
+  
+  // Metadata
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("audit_policies")
+}
+
+// Audit Reports for compliance and analysis
+model AuditReport {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  
+  // Report configuration
+  reportType     String   // 'compliance', 'security', 'activity', 'custom'
+  filters        Json     // Search and filter criteria
+  dateRange      Json     // Start and end dates
+  
+  // Report data
+  totalRecords   Int      @default(0)
+  reportData     Json?    // Generated report data (may be large)
+  summary        Json?    // Executive summary
+  
+  // File information
+  filePath       String?  // Path to generated report file
+  fileFormat     String?  // 'pdf', 'excel', 'csv', 'json'
+  fileSize       Int?
+  
+  // Status and scheduling
+  status         String   @default("pending") // 'pending', 'generating', 'completed', 'failed'
+  isScheduled    Boolean  @default(false)
+  schedule       Json?    // Cron-like schedule configuration
+  lastGenerated  DateTime?
+  nextGeneration DateTime?
+  
+  // Access control
+  isPublic       Boolean  @default(false)
+  allowedRoles   String[] @default([])
+  
+  // Metadata
+  generatedBy    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([reportType])
+  @@index([status])
+  @@index([isScheduled])
+  @@index([lastGenerated])
+  @@map("audit_reports")
 }
 
 // Sync Status Tracking
@@ -878,6 +1093,77 @@ model SyncStatus {
 
   @@unique([userId, deviceId])
   @@map("sync_status")
+}
+
+// Cross-Device Sync Models
+model SyncDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  deviceId   String   @unique
+  name       String
+  type       String   // 'desktop', 'mobile', 'tablet'
+  platform   String
+  browser    String
+  lastActive DateTime @default(now())
+  isOnline   Boolean  @default(true)
+  location   String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  user     User       @relation("UserSyncDevices", fields: [userId], references: [id], onDelete: Cascade)
+  syncData SyncData[]
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+  @@map("sync_devices")
+}
+
+model SyncData {
+  id        String   @id @default(cuid())
+  userId    String
+  deviceId  String
+  type      String   // 'preferences', 'session', 'cache', 'state'
+  dataId    String   // Identifier for the specific data item
+  data      Json
+  version   BigInt
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User       @relation("UserSyncData", fields: [userId], references: [id], onDelete: Cascade)
+  device SyncDevice @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@unique([userId, type, dataId])
+  @@index([userId, timestamp])
+  @@index([deviceId])
+  @@map("sync_data")
+}
+
+model SyncConflict {
+  id              String   @id @default(cuid())
+  userId          String
+  type            String
+  dataId          String
+  localData       Json
+  remoteData      Json
+  localTimestamp  DateTime
+  remoteTimestamp DateTime
+  localDeviceId   String
+  remoteDeviceId  String
+  resolved        Boolean  @default(false)
+  resolution      String?  // 'local', 'remote', 'merge'
+  resolvedData    Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user User @relation("UserSyncConflicts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, resolved])
+  @@map("sync_conflicts")
 }
 
 // Document Management System
@@ -1547,4 +1833,551 @@ model TaskSuggestion {
   @@index([confidence])
   @@index([expiresAt])
   @@map("task_suggestions")
+}
+
+// Client Portal System
+
+// Client Status Enum
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+// Client Engagement Status Enum
+enum EngagementStatus {
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+// Document Request Status Enum
+enum DocumentRequestStatus {
+  PENDING
+  UPLOADED
+  REVIEWED
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// Client Model
+model Client {
+  id             String       @id @default(cuid())
+  organizationId String
+  
+  // Basic Information
+  name           String
+  email          String
+  phone          String?
+  companyName    String?
+  gstin          String?      // GST Identification Number
+  pan            String?      // PAN Number
+  
+  // Address
+  address        Json?        // Structured address data
+  
+  // Portal Access
+  passwordHash   String?      // For client portal login
+  isPortalEnabled Boolean     @default(true)
+  lastLoginAt    DateTime?
+  
+  // Status and Settings
+  status         ClientStatus @default(ACTIVE)
+  preferences    Json         @default("{}")
+  
+  // Branding
+  brandingConfig Json?        // Custom branding for this client
+  
+  // Metadata
+  metadata       Json         @default("{}")
+  createdBy      String       // CA firm user who created this client
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  engagements    ClientEngagement[]
+  documentRequests ClientDocumentRequest[]
+  uploadedDocuments ClientDocument[]
+  messages       ClientMessage[]
+  notifications  ClientNotification[]
+  feedbacks      ClientFeedback[]
+  meetings       ClientMeeting[]
+  invoices       ClientInvoice[]
+  progressUpdates ClientProgressUpdate[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@index([status])
+  @@index([createdBy])
+  @@map("clients")
+}
+
+// Client Engagement Model
+model ClientEngagement {
+  id             String           @id @default(cuid())
+  organizationId String
+  clientId       String
+  
+  // Engagement Details
+  name           String
+  description    String?
+  type           String           // 'audit', 'tax_filing', 'compliance', 'consultation'
+  status         EngagementStatus @default(PLANNING)
+  priority       TaskPriority     @default(MEDIUM)
+  
+  // Timeline
+  startDate      DateTime?
+  expectedEndDate DateTime?
+  actualEndDate  DateTime?
+  
+  // Team Assignment
+  leadPartnerId  String?          // Lead partner for this engagement
+  teamMembers    String[]         // Array of user IDs
+  
+  // Financial
+  estimatedValue Decimal?         @db.Decimal(12, 2)
+  actualValue    Decimal?         @db.Decimal(12, 2)
+  currency       String           @default("INR")
+  
+  // Progress Tracking
+  completionPercentage Int        @default(0)
+  milestones     Json             @default("[]") // Array of milestone objects
+  
+  // Client Visibility
+  isVisibleToClient Boolean       @default(true)
+  clientNotes    String?          // Notes visible to client
+  internalNotes  String?          // Internal notes not visible to client
+  
+  // Metadata
+  metadata       Json             @default("{}")
+  createdBy      String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tasks          ClientEngagementTask[]
+  documentRequests ClientDocumentRequest[]
+  progressUpdates ClientProgressUpdate[]
+  invoices       ClientInvoice[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([leadPartnerId])
+  @@index([startDate])
+  @@map("client_engagements")
+}
+
+// Client Engagement Task Model (links tasks to engagements)
+model ClientEngagementTask {
+  id           String           @id @default(cuid())
+  engagementId String
+  taskId       String
+  
+  // Client visibility settings
+  isVisibleToClient Boolean     @default(false)
+  clientDescription String?     // Client-friendly description
+  
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  engagement   ClientEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  task         Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([engagementId, taskId])
+  @@index([engagementId])
+  @@index([taskId])
+  @@map("client_engagement_tasks")
+}
+
+// Client Document Request Model
+model ClientDocumentRequest {
+  id             String                @id @default(cuid())
+  organizationId String
+  clientId       String
+  engagementId   String?
+  
+  // Request Details
+  title          String
+  description    String
+  category       String?               // 'financial', 'legal', 'compliance', etc.
+  priority       TaskPriority          @default(MEDIUM)
+  
+  // Requirements
+  requiredDocuments Json               @default("[]") // Array of required document types
+  optionalDocuments Json               @default("[]") // Array of optional document types
+  instructions   String?               // Special instructions for client
+  
+  // Status and Timeline
+  status         DocumentRequestStatus @default(PENDING)
+  dueDate        DateTime?
+  completedAt    DateTime?
+  
+  // Uploaded Documents
+  uploadedCount  Int                   @default(0)
+  requiredCount  Int                   @default(0)
+  
+  // Notifications
+  reminderSentAt DateTime?
+  lastNotifiedAt DateTime?
+  
+  // Metadata
+  metadata       Json                  @default("{}")
+  createdBy      String
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  // Relations
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  engagement     ClientEngagement?     @relation(fields: [engagementId], references: [id])
+  documents      ClientDocument[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([engagementId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("client_document_requests")
+}
+
+// Client Document Model
+model ClientDocument {
+  id             String                @id @default(cuid())
+  organizationId String
+  clientId       String
+  requestId      String?               // Optional link to document request
+  
+  // Document Information
+  name           String
+  originalName   String
+  description    String?
+  category       String?
+  
+  // File Information
+  filePath       String
+  fileSize       Int
+  mimeType       String
+  checksum       String?
+  
+  // Status and Review
+  status         DocumentRequestStatus @default(UPLOADED)
+  reviewNotes    String?               // Notes from CA firm review
+  
+  // Client Information
+  uploadedByClient Boolean             @default(true)
+  clientNotes    String?               // Notes from client
+  
+  // Metadata
+  metadata       Json                  @default("{}")
+  uploadedAt     DateTime              @default(now())
+  reviewedAt     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  // Relations
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  request        ClientDocumentRequest? @relation(fields: [requestId], references: [id])
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([requestId])
+  @@index([status])
+  @@index([uploadedAt])
+  @@map("client_documents")
+}
+
+// Client Communication Model
+model ClientMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  
+  // Message Details
+  subject        String?
+  content        String
+  messageType    String   @default("message") // 'message', 'notification', 'update'
+  
+  // Sender Information
+  fromClient     Boolean  @default(false) // true if from client, false if from CA firm
+  fromUserId     String?  // CA firm user who sent (if fromClient = false)
+  
+  // Status
+  isRead         Boolean  @default(false)
+  readAt         DateTime?
+  
+  // Threading
+  parentId       String?  // For threaded conversations
+  
+  // Attachments
+  attachments    Json     @default("[]") // Array of attachment references
+  
+  // Metadata
+  metadata       Json     @default("{}")
+  sentAt         DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent         ClientMessage? @relation("MessageReplies", fields: [parentId], references: [id])
+  replies        ClientMessage[] @relation("MessageReplies")
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([fromClient])
+  @@index([isRead])
+  @@index([sentAt])
+  @@map("client_messages")
+}
+
+// Client Notification Model
+model ClientNotification {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  
+  // Notification Details
+  type           String   // 'document_request', 'status_update', 'meeting_reminder', etc.
+  title          String
+  message        String
+  
+  // Delivery Channels
+  channels       String[] @default(["portal"]) // 'portal', 'email', 'sms'
+  
+  // Status
+  isRead         Boolean  @default(false)
+  readAt         DateTime?
+  
+  // Delivery Status
+  emailSent      Boolean  @default(false)
+  emailSentAt    DateTime?
+  smsSent        Boolean  @default(false)
+  smsSentAt      DateTime?
+  
+  // Action
+  actionUrl      String?  // URL for client to take action
+  actionLabel    String?  // Label for action button
+  
+  // Metadata
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("client_notifications")
+}
+
+// Client Feedback Model
+model ClientFeedback {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  engagementId   String?
+  
+  // Feedback Details
+  type           String   // 'satisfaction', 'service_quality', 'suggestion', 'complaint'
+  rating         Int?     // 1-5 rating scale
+  title          String?
+  feedback       String
+  
+  // Categories
+  categories     String[] @default([]) // Areas of feedback
+  
+  // Status
+  status         String   @default("new") // 'new', 'reviewed', 'responded', 'resolved'
+  response       String?  // Response from CA firm
+  respondedBy    String?  // User who responded
+  respondedAt    DateTime?
+  
+  // Metadata
+  metadata       Json     @default("{}")
+  submittedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  engagement     ClientEngagement? @relation(fields: [engagementId], references: [id])
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([engagementId])
+  @@index([type])
+  @@index([status])
+  @@index([rating])
+  @@map("client_feedbacks")
+}
+
+// Client Meeting Model
+model ClientMeeting {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  engagementId   String?
+  
+  // Meeting Details
+  title          String
+  description    String?
+  type           String   @default("consultation") // 'consultation', 'review', 'planning'
+  
+  // Scheduling
+  scheduledAt    DateTime
+  duration       Int      @default(60) // Duration in minutes
+  timezone       String   @default("Asia/Kolkata")
+  
+  // Meeting Information
+  location       String?  // Physical location or meeting link
+  meetingLink    String?  // Video conference link
+  agenda         Json?    // Meeting agenda items
+  
+  // Participants
+  attendees      String[] @default([]) // Array of user IDs from CA firm
+  
+  // Status
+  status         String   @default("scheduled") // 'scheduled', 'completed', 'cancelled', 'rescheduled'
+  
+  // Follow-up
+  notes          String?  // Meeting notes
+  actionItems    Json?    // Action items from meeting
+  followUpDate   DateTime?
+  
+  // Reminders
+  reminderSent   Boolean  @default(false)
+  reminderSentAt DateTime?
+  
+  // Metadata
+  metadata       Json     @default("{}")
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  engagement     ClientEngagement? @relation(fields: [engagementId], references: [id])
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([engagementId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("client_meetings")
+}
+
+// Client Invoice Model
+model ClientInvoice {
+  id             String           @id @default(cuid())
+  organizationId String
+  clientId       String
+  engagementId   String?
+  
+  // Invoice Details
+  invoiceNumber  String
+  title          String
+  description    String?
+  
+  // Financial Information
+  subtotal       Decimal          @db.Decimal(12, 2)
+  taxAmount      Decimal          @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal          @db.Decimal(12, 2)
+  currency       String           @default("INR")
+  
+  // Line Items
+  lineItems      Json             @default("[]") // Array of invoice line items
+  
+  // Status and Dates
+  status         String           @default("draft") // 'draft', 'sent', 'paid', 'overdue', 'cancelled'
+  issueDate      DateTime         @default(now())
+  dueDate        DateTime?
+  paidDate       DateTime?
+  
+  // Payment Information
+  paymentMethod  String?
+  paymentReference String?
+  
+  // File Information
+  filePath       String?          // Path to generated invoice PDF
+  
+  // Metadata
+  metadata       Json             @default("{}")
+  createdBy      String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  engagement     ClientEngagement? @relation(fields: [engagementId], references: [id])
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([engagementId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("client_invoices")
+}
+
+// Client Progress Update Model
+model ClientProgressUpdate {
+  id             String           @id @default(cuid())
+  organizationId String
+  clientId       String
+  engagementId   String
+  
+  // Update Details
+  title          String
+  description    String
+  updateType     String           @default("progress") // 'progress', 'milestone', 'status_change'
+  
+  // Progress Information
+  previousStatus String?
+  currentStatus  String?
+  completionPercentage Int?
+  
+  // Milestone Information
+  milestoneId    String?          // Reference to milestone in engagement
+  milestoneName  String?
+  
+  // Visibility
+  isVisibleToClient Boolean       @default(true)
+  
+  // Metadata
+  metadata       Json             @default("{}")
+  createdBy      String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  engagement     ClientEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([engagementId])
+  @@index([updateType])
+  @@index([createdAt])
+  @@map("client_progress_updates")
 }
