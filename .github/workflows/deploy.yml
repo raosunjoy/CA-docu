@@ -1,0 +1,200 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: Deploy to staging
+        run: |
+          export KUBECONFIG=kubeconfig
+          envsubst < k8s/deployment.yaml | kubectl apply -f -
+          kubectl rollout status deployment/zetra-app -n staging --timeout=600s
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: staging
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+          REDIS_URL: ${{ secrets.REDIS_URL_STAGING }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET_STAGING }}
+
+      - name: Run smoke tests
+        run: |
+          sleep 30
+          curl -f https://staging.zetra.app/api/health || exit 1
+          curl -f https://staging.zetra.app/api/health/db || exit 1
+
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: 'Staging deployment completed successfully'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-staging
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+
+    strategy:
+      matrix:
+        deployment: [blue, green]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: Deploy to ${{ matrix.deployment }}
+        run: |
+          export KUBECONFIG=kubeconfig
+          export DEPLOYMENT_SLOT=${{ matrix.deployment }}
+          envsubst < k8s/deployment.yaml | kubectl apply -f -
+          kubectl rollout status deployment/zetra-app-${{ matrix.deployment }} -n production --timeout=600s
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+          REDIS_URL: ${{ secrets.REDIS_URL_PRODUCTION }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET_PRODUCTION }}
+
+      - name: Health check ${{ matrix.deployment }}
+        run: |
+          sleep 30
+          kubectl port-forward service/zetra-app-${{ matrix.deployment }} 8080:80 -n production &
+          sleep 10
+          curl -f http://localhost:8080/api/health || exit 1
+          curl -f http://localhost:8080/api/health/db || exit 1
+
+  switch-traffic:
+    name: Switch Traffic to New Deployment
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-production
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: Switch traffic to new deployment
+        run: |
+          export KUBECONFIG=kubeconfig
+          # Determine current active deployment
+          CURRENT_ACTIVE=$(kubectl get service zetra-app-active -n production -o jsonpath='{.spec.selector.slot}')
+          NEW_ACTIVE=$([ "$CURRENT_ACTIVE" = "blue" ] && echo "green" || echo "blue")
+          
+          # Update service to point to new deployment
+          kubectl patch service zetra-app-active -n production -p '{"spec":{"selector":{"slot":"'$NEW_ACTIVE'"}}}'
+          
+          echo "Traffic switched from $CURRENT_ACTIVE to $NEW_ACTIVE"
+
+      - name: Final health check
+        run: |
+          sleep 30
+          curl -f https://zetra.app/api/health || exit 1
+          curl -f https://zetra.app/api/health/db || exit 1
+
+      - name: Notify successful deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#deployments'
+          text: 'Production deployment completed successfully! :rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    environment: production
+    if: failure()
+
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: Rollback to previous deployment
+        run: |
+          export KUBECONFIG=kubeconfig
+          # Get current active deployment
+          CURRENT_ACTIVE=$(kubectl get service zetra-app-active -n production -o jsonpath='{.spec.selector.slot}')
+          PREVIOUS_ACTIVE=$([ "$CURRENT_ACTIVE" = "blue" ] && echo "green" || echo "blue")
+          
+          # Switch back to previous deployment
+          kubectl patch service zetra-app-active -n production -p '{"spec":{"selector":{"slot":"'$PREVIOUS_ACTIVE'"}}}'
+          
+          echo "Rolled back from $CURRENT_ACTIVE to $PREVIOUS_ACTIVE"
+
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#deployments'
+          text: 'Production deployment failed and was rolled back! :warning:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

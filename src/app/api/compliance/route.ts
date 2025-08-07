@@ -102,9 +102,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
 
-  // Helper methods for framework information
-  private getFrameworkDescription(framework: ComplianceFramework): string {
+// Helper functions for framework information
+function getFrameworkDescription(framework: ComplianceFramework): string {
     const descriptions = {
       [ComplianceFramework.ICAI]: 'Institute of Chartered Accountants of India professional standards',
       [ComplianceFramework.GSTN]: 'Goods and Services Tax Network compliance requirements',
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
     return descriptions[framework] || 'Compliance framework'
   }
 
-  private isFrameworkMandatory(framework: ComplianceFramework): boolean {
+function isFrameworkMandatory(framework: ComplianceFramework): boolean {
     const mandatory = [
       ComplianceFramework.ICAI,
       ComplianceFramework.GSTN,
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
     return mandatory.includes(framework)
   }
 
-  private getApplicableRegions(framework: ComplianceFramework): string[] {
+function getApplicableRegions(framework: ComplianceFramework): string[] {
     const regions = {
       [ComplianceFramework.ICAI]: ['India'],
       [ComplianceFramework.GSTN]: ['India'],

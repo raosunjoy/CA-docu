@@ -1,14 +1,15 @@
 # Kubernetes Deployment Configuration for Zetra Platform
-# Implements horizontal scaling, health checks, and resource management
+# Implements blue-green deployment, horizontal scaling, health checks, and resource management
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: zetra-platform
-  namespace: zetra
+  name: zetra-platform-${DEPLOYMENT_SLOT:-blue}
+  namespace: ${ENVIRONMENT:-production}
   labels:
     app: zetra-platform
-    version: v1.0.0
+    slot: ${DEPLOYMENT_SLOT:-blue}
+    version: ${IMAGE_TAG:-latest}
     tier: application
 spec:
   replicas: 3
@@ -20,11 +21,13 @@ spec:
   selector:
     matchLabels:
       app: zetra-platform
+      slot: ${DEPLOYMENT_SLOT:-blue}
   template:
     metadata:
       labels:
         app: zetra-platform
-        version: v1.0.0
+        slot: ${DEPLOYMENT_SLOT:-blue}
+        version: ${IMAGE_TAG:-latest}
         tier: application
       annotations:
         prometheus.io/scrape: "true"
@@ -33,7 +36,7 @@ spec:
     spec:
       containers:
       - name: zetra-app
-        image: zetra/platform:latest
+        image: ghcr.io/zetra/zetra-platform:${IMAGE_TAG:-latest}
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
@@ -145,8 +148,28 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: zetra-platform-service
-  namespace: zetra
+  name: zetra-platform-${DEPLOYMENT_SLOT:-blue}
+  namespace: ${ENVIRONMENT:-production}
+  labels:
+    app: zetra-platform
+    slot: ${DEPLOYMENT_SLOT:-blue}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: zetra-platform
+    slot: ${DEPLOYMENT_SLOT:-blue}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zetra-platform-active
+  namespace: ${ENVIRONMENT:-production}
   labels:
     app: zetra-platform
   annotations:
@@ -165,6 +188,7 @@ spec:
     name: https
   selector:
     app: zetra-platform
+    slot: blue  # This will be updated during deployment
   sessionAffinity: ClientIP
   sessionAffinityConfig:
     clientIP:
@@ -174,13 +198,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: zetra-platform-hpa
-  namespace: zetra
+  name: zetra-platform-hpa-${DEPLOYMENT_SLOT:-blue}
+  namespace: ${ENVIRONMENT:-production}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: zetra-platform
+    name: zetra-platform-${DEPLOYMENT_SLOT:-blue}
   minReplicas: 3
   maxReplicas: 20
   metrics:
@@ -226,7 +250,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: zetra-platform-pdb
-  namespace: zetra
+  namespace: ${ENVIRONMENT:-production}
 spec:
   minAvailable: 2
   selector:
@@ -238,7 +262,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: zetra-config
-  namespace: zetra
+  namespace: ${ENVIRONMENT:-production}
 data:
   app.json: |
     {
@@ -286,7 +310,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: zetra-secrets
-  namespace: zetra
+  namespace: ${ENVIRONMENT:-production}
 type: Opaque
 data:
   # Base64 encoded secrets (replace with actual values)
@@ -301,7 +325,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: zetra-platform-netpol
-  namespace: zetra
+  namespace: ${ENVIRONMENT:-production}
 spec:
   podSelector:
     matchLabels:
