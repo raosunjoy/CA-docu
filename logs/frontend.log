@@ -1,0 +1,89 @@
+
+> zetra-platform@1.0.0 dev
+> next dev
+
+   ▲ Next.js 15.4.5
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.29.252:3000
+   - Environments: .env
+   - Experiments (use with caution):
+     ✓ optimizeCss
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 1600ms
+ ○ Compiling / ...
+ ⚠ ./src/components/email/EmailComposer.tsx
+Attempted import error: 'Template' is not exported from '__barrel_optimize__?names=Clock,FileText,Paperclip,Save,Send,Template,X!=!lucide-react' (imported as 'Template').
+
+Import trace for requested module:
+./src/components/email/EmailComposer.tsx
+./src/components/email/EmailPage.tsx
+./src/components/App.tsx
+./src/app/page.tsx
+
+./src/components/email/EmailComposer.tsx
+Attempted import error: 'Template' is not exported from '__barrel_optimize__?names=Clock,FileText,Paperclip,Save,Send,Template,X!=!lucide-react' (imported as 'Template').
+
+Import trace for requested module:
+./src/components/email/EmailComposer.tsx
+./src/components/email/EmailPage.tsx
+./src/components/App.tsx
+./src/app/page.tsx
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+Failed to initialize offline chat database: ReferenceError: indexedDB is not defined
+    at OfflineChatService.initDB (src/lib/offline-chat-service.ts:52:29)
+    at new OfflineChatService (src/lib/offline-chat-service.ts:45:9)
+    at eval (src/lib/offline-chat-service.ts:501:34)
+    at (ssr)/./src/lib/offline-chat-service.ts (.next/server/app/page.js:743:1)
+    at eval (webpack-internal:///(ssr)/./src/hooks/useWebSocket.ts:8:83)
+    at (ssr)/./src/hooks/useWebSocket.ts (.next/server/app/page.js:721:1)
+    at eval (webpack-internal:///(ssr)/./src/components/chat/ChatInterface.tsx:9:77)
+    at (ssr)/./src/components/chat/ChatInterface.tsx (.next/server/app/page.js:281:1)
+    at eval (webpack-internal:///(ssr)/./src/components/chat/ChatPage.tsx:9:72)
+    at (ssr)/./src/components/chat/ChatPage.tsx (.next/server/app/page.js:292:1)
+    at eval (webpack-internal:///(ssr)/./src/components/App.tsx:17:84)
+    at (ssr)/./src/components/App.tsx (.next/server/app/page.js:149:1)
+    at eval (webpack-internal:///(ssr)/./src/app/page.tsx:8:73)
+    at (ssr)/./src/app/page.tsx (.next/server/app/page.js:138:1)
+  50 |   private async initDB() {
+  51 |     try {
+> 52 |       this.db = await openDB(this.DB_NAME, this.DB_VERSION, {
+     |                             ^
+  53 |         upgrade(db) {
+  54 |           // Messages store
+  55 |           if (!db.objectStoreNames.contains('messages')) {
+ ⨯ ReferenceError: window is not defined
+    at OfflineChatService.setupOnlineListener (src/lib/offline-chat-service.ts:97:4)
+    at new OfflineChatService (src/lib/offline-chat-service.ts:46:9)
+    at eval (src/lib/offline-chat-service.ts:501:34)
+    at (ssr)/./src/lib/offline-chat-service.ts (.next/server/app/page.js:743:1)
+    at eval (webpack-internal:///(ssr)/./src/hooks/useWebSocket.ts:8:83)
+    at (ssr)/./src/hooks/useWebSocket.ts (.next/server/app/page.js:721:1)
+    at eval (webpack-internal:///(ssr)/./src/components/chat/ChatInterface.tsx:9:77)
+    at (ssr)/./src/components/chat/ChatInterface.tsx (.next/server/app/page.js:281:1)
+    at eval (webpack-internal:///(ssr)/./src/components/chat/ChatPage.tsx:9:72)
+    at (ssr)/./src/components/chat/ChatPage.tsx (.next/server/app/page.js:292:1)
+    at eval (webpack-internal:///(ssr)/./src/components/App.tsx:17:84)
+    at (ssr)/./src/components/App.tsx (.next/server/app/page.js:149:1)
+    at eval (webpack-internal:///(ssr)/./src/app/page.tsx:8:73)
+    at (ssr)/./src/app/page.tsx (.next/server/app/page.js:138:1)
+   95 |   // Setup online/offline listeners
+   96 |   private setupOnlineListener() {
+>  97 |     window.addEventListener('online', () => {
+      |    ^
+   98 |       console.log('Connection restored, syncing offline messages...')
+   99 |       this.isOnline = true
+  100 |       this.syncOfflineMessages() {
+  digest: '4106010986'
+}
+ HEAD / 500 in 2271ms
+ ⚠ ./src/components/email/EmailComposer.tsx
+Attempted import error: 'Template' is not exported from '__barrel_optimize__?names=Clock,FileText,Paperclip,Save,Send,Template,X!=!lucide-react' (imported as 'Template').
+
+Import trace for requested module:
+./src/components/email/EmailComposer.tsx
+./src/components/email/EmailPage.tsx
+./src/components/App.tsx
+./src/app/page.tsx
+[?25h

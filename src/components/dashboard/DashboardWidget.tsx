@@ -13,6 +13,8 @@ interface DashboardWidgetProps {
   onRefresh?: (widgetId: string) => void
   isEditing?: boolean
   className?: string
+  organizationId?: string
+  userId?: string
 }
 
 export const DashboardWidget: React.FC<DashboardWidgetProps> = ({
@@ -22,7 +24,9 @@ export const DashboardWidget: React.FC<DashboardWidgetProps> = ({
   onRemove,
   onRefresh,
   isEditing = false,
-  className = ''
+  className = '',
+  organizationId,
+  userId
 }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -166,7 +170,7 @@ export const DashboardWidget: React.FC<DashboardWidgetProps> = ({
         )}
 
         {!isLoading && !error && (
-          <WidgetContent config={config} />
+          <WidgetContent config={config} organizationId={organizationId} userId={userId} />
         )}
       </div>
 
@@ -182,18 +186,22 @@ export const DashboardWidget: React.FC<DashboardWidgetProps> = ({
 }
 
 // Widget content renderer based on widget type
-const WidgetContent: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => {
+const WidgetContent: React.FC<{ 
+  config: DashboardWidgetConfig
+  organizationId?: string
+  userId?: string 
+}> = ({ config, organizationId, userId }) => {
   switch (config.type) {
     case 'task-overview':
-      return <TaskOverviewWidget config={config} />
+      return <TaskOverviewWidget config={config} organizationId={organizationId} userId={userId} />
     case 'task-board':
       return <TaskBoardWidget config={config} />
     case 'compliance-status':
-      return <ComplianceStatusWidget config={config} />
+      return <ComplianceStatusWidget config={config} organizationId={organizationId} userId={userId} />
     case 'team-performance':
-      return <TeamPerformanceWidget config={config} />
+      return <TeamPerformanceWidget config={config} organizationId={organizationId} userId={userId} />
     case 'workload-analytics':
-      return <WorkloadAnalyticsWidget config={config} />
+      return <WorkloadAnalyticsWidget config={config} organizationId={organizationId} userId={userId} />
     case 'time-tracking':
       return <TimeTrackingWidget config={config} />
     case 'document-stats':
@@ -227,25 +235,15 @@ const WidgetContent: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) 
   }
 }
 
-// Placeholder widget components - these will be implemented in separate files
-const TaskOverviewWidget: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => (
-  <div className="text-center py-4">Task Overview Widget</div>
-)
+// Import actual widget implementations
+import { TaskOverviewWidget } from './widgets/TaskOverviewWidget'
+import { ComplianceStatusWidget } from './widgets/ComplianceStatusWidget'
+import { TeamPerformanceWidget } from './widgets/TeamPerformanceWidget'
+import { WorkloadAnalyticsWidget } from './widgets/WorkloadAnalyticsWidget'
 
+// Placeholder widget components - these will be implemented in separate files
 const TaskBoardWidget: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => (
   <div className="text-center py-4">Task Board Widget</div>
-)
-
-const ComplianceStatusWidget: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => (
-  <div className="text-center py-4">Compliance Status Widget</div>
-)
-
-const TeamPerformanceWidget: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => (
-  <div className="text-center py-4">Team Performance Widget</div>
-)
-
-const WorkloadAnalyticsWidget: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => (
-  <div className="text-center py-4">Workload Analytics Widget</div>
 )
 
 const TimeTrackingWidget: React.FC<{ config: DashboardWidgetConfig }> = ({ config }) => (
