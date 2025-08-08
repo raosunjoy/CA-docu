@@ -21,7 +21,7 @@ const messageFiltersSchema = z.object({
 // GET /api/chat/channels/[id]/messages - Get channel messages
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -35,7 +35,8 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const { id } = await params
+    const channelId = id
 
     // Verify user has access to channel
     const isMember = await chatService.isChannelMember(channelId, user.id)

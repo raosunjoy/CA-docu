@@ -5,6 +5,16 @@ import { TaskStatus, TaskPriority } from '@/types'
 // Mock the drag and drop dependencies
 jest.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <div data-testid="dnd-context">{children}</div>,
+  useDroppable: jest.fn(() => ({
+    setNodeRef: jest.fn(),
+    isOver: false,
+  })),
+  useDraggable: jest.fn(() => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: jest.fn(),
+    transform: null,
+  })),
   useSensor: jest.fn(),
   useSensors: jest.fn(() => []),
   PointerSensor: jest.fn(),
@@ -13,7 +23,23 @@ jest.mock('@dnd-kit/core', () => ({
 
 jest.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div data-testid="sortable-context">{children}</div>,
+  useSortable: jest.fn(() => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: jest.fn(),
+    transform: null,
+    transition: null,
+    isDragging: false,
+  })),
   verticalListSortingStrategy: jest.fn(),
+}))
+
+jest.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Transform: {
+      toString: jest.fn(() => ''),
+    },
+  },
 }))
 
 const mockTasks = [

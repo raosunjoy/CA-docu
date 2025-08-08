@@ -21,7 +21,7 @@ export interface DocumentAnalysisResult {
 }
 
 export interface ExtractedEntity {
-  type: 'AMOUNT' | 'DATE' | 'PERSON' | 'COMPANY' | 'ACCOUNT' | 'TAX_ID'
+  type: 'AMOUNT' | 'DATE' | 'PERSON' | 'COMPANY' | 'ACCOUNT_NUMBER' | 'TAX_ID' | 'REFERENCE_NUMBER'
   value: string
   confidence: number
   context: string

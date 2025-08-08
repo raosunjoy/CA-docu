@@ -9,7 +9,7 @@ import type { APIResponse } from '../../../../../../types'
 // GET /api/chat/tasks/[taskId]/channel - Get or create task channel
 export async function GET(
   request: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -23,7 +23,7 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const taskId = params.taskId
+    const { taskId } = await params
 
     // Verify user has access to the task
     const { prisma } = await import('../../../../../../lib/prisma')

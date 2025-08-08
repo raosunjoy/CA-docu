@@ -34,11 +34,12 @@ async function verifyClientToken(request: NextRequest) {
 // Mark message as read
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const client = await verifyClientToken(request)
-    const messageId = params.id
+    const { id } = await params
+    const messageId = id
 
     // Verify message belongs to client and is from CA firm
     const message = await prisma.clientMessage.findFirst({

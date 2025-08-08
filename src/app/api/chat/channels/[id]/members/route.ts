@@ -19,7 +19,7 @@ const removeMemberSchema = z.object({
 // GET /api/chat/channels/[id]/members - Get channel members
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -33,7 +33,8 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const { id } = await params
+    const channelId = id
 
     // Verify user has access to channel
     const isMember = await chatService.isChannelMember(channelId, user.id)
@@ -73,7 +74,7 @@ export async function GET(
 // POST /api/chat/channels/[id]/members - Add member to channel
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -87,7 +88,8 @@ export async function POST(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const { id } = await params
+    const channelId = id
     const body = await request.json()
     const validationResult = addMemberSchema.safeParse(body)
 
@@ -171,7 +173,7 @@ export async function POST(
 // DELETE /api/chat/channels/[id]/members - Remove member from channel
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -185,7 +187,8 @@ export async function DELETE(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const { id } = await params
+    const channelId = id
     const body = await request.json()
     const validationResult = removeMemberSchema.safeParse(body)
 

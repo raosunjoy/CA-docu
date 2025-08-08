@@ -17,7 +17,7 @@ const shareContentSchema = z.object({
 // POST /api/chat/channels/[id]/share - Share content in channel
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
@@ -31,7 +31,8 @@ export async function POST(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const { id } = await params
+    const channelId = id
     const body = await request.json()
     const validationResult = shareContentSchema.safeParse(body)
 

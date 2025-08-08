@@ -36,11 +36,12 @@ async function verifyClientToken(request: NextRequest) {
 // Get document details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const client = await verifyClientToken(request)
-    const documentId = params.id
+    const { id } = await params
+    const documentId = id
 
     const document = await prisma.clientDocument.findFirst({
       where: {
@@ -92,11 +93,12 @@ export async function GET(
 // Delete document
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const client = await verifyClientToken(request)
-    const documentId = params.id
+    const { id } = await params
+    const documentId = id
 
     const document = await prisma.clientDocument.findFirst({
       where: {

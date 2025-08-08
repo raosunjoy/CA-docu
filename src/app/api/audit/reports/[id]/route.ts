@@ -13,10 +13,11 @@ const auditService = new AuditService(prisma)
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await verifyAuth(request)
+    const { id } = await params
     
     // Only admins and partners can access audit reports
     if (!['ADMIN', 'PARTNER'].includes(user.role)) {
@@ -26,7 +27,7 @@ export async function GET(
       )
     }
 
-    const reportId = params.id
+    const reportId = id
 
     // Find the report
     const report = await prisma.auditReport.findFirst({
@@ -101,10 +102,11 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await verifyAuth(request)
+    const { id } = await params
     
     // Only admins can delete audit reports
     if (user.role !== 'ADMIN') {
@@ -114,7 +116,7 @@ export async function DELETE(
       )
     }
 
-    const reportId = params.id
+    const reportId = id
 
     // Find the report
     const report = await prisma.auditReport.findFirst({

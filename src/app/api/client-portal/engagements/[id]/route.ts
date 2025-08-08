@@ -34,11 +34,12 @@ async function verifyClientToken(request: NextRequest) {
 // Get engagement details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const client = await verifyClientToken(request)
-    const engagementId = params.id
+    const { id } = await params
+    const engagementId = id
 
     const engagement = await prisma.clientEngagement.findFirst({
       where: {

@@ -1,17 +1,23 @@
 import { render, RenderOptions } from '@testing-library/react'
 import { ReactElement, ReactNode } from 'react'
-import { User, Task, Document, Organization } from '@/types'
+import { Task, Document, Organization } from '@/types'
+import { User } from '@/hooks/useAuth'
 
 // Test data factories
 export const createMockUser = (overrides: Partial<User> = {}): User => ({
   id: 'user-1',
   email: 'test@example.com',
-  name: 'Test User',
+  firstName: 'Test',
+  lastName: 'User',
   role: 'ASSOCIATE',
-  organizationId: 'org-1',
   isActive: true,
-  createdAt: new Date('2024-01-01'),
-  updatedAt: new Date('2024-01-01'),
+  lastLoginAt: null,
+  organization: {
+    id: 'org-1',
+    name: 'Test Organization',
+    subdomain: 'test'
+  },
+  permissions: ['read:tasks', 'write:tasks'],
   ...overrides,
 })
 
@@ -27,8 +33,6 @@ export const createMockTask = (overrides: Partial<Task> = {}): Task => ({
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
   dueDate: new Date('2024-12-31'),
-  tags: [],
-  comments: [],
   ...overrides,
 })
 
@@ -45,14 +49,13 @@ export const createMockDocument = (overrides: Partial<Document> = {}): Document 
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
   isDeleted: false,
-  tags: [],
   ...overrides,
 })
 
 export const createMockOrganization = (overrides: Partial<Organization> = {}): Organization => ({
   id: 'org-1',
   name: 'Test CA Firm',
-  domain: 'testcafirm.com',
+  subdomain: 'testcafirm',
   settings: {},
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
@@ -65,16 +68,11 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   initialTasks?: Task[]
 }
 
-const AllTheProviders = ({ children }: { children: ReactNode }) => {
-  // Add any global providers here (Auth, Theme, etc.)
-  return children as ReactElement
-}
-
 const customRender = (
   ui: ReactElement,
   options: CustomRenderOptions = {}
 ) => {
-  const { initialUser, ...renderOptions } = options
+  const { initialUser: _initialUser, ...renderOptions } = options
 
   return render(ui, renderOptions)
 }

@@ -35,7 +35,7 @@ const updateAutomationRuleSchema = z.object({
 // PUT /api/tasks/automation/[id] - Update automation rule
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
@@ -115,7 +115,7 @@ export async function PUT(
 // DELETE /api/tasks/automation/[id] - Delete automation rule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url)

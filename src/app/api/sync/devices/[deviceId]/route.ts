@@ -9,7 +9,7 @@ import { auth } from '@/lib/auth'
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
     const user = await auth.getCurrentUser(request)
@@ -20,7 +20,7 @@ export async function DELETE(
       )
     }
 
-    const { deviceId } = params
+    const { deviceId } = await params
 
     // Delete device and associated sync data
     await prisma.$transaction(async (tx) => {
@@ -57,7 +57,7 @@ export async function DELETE(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
     const user = await auth.getCurrentUser(request)
@@ -68,7 +68,7 @@ export async function PUT(
       )
     }
 
-    const { deviceId } = params
+    const { deviceId } = await params
     const { name, isOnline } = await request.json()
 
     // Update device

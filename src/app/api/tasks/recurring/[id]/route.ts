@@ -30,7 +30,7 @@ const updateRecurringTaskSchema = z.object({
 // PUT /api/tasks/recurring/[id] - Update recurring task
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()
@@ -110,7 +110,7 @@ export async function PUT(
 // DELETE /api/tasks/recurring/[id] - Delete recurring task
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url)

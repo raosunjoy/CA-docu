@@ -11,7 +11,7 @@ const toggleSchema = z.object({
 // POST /api/tasks/recurring/[id]/toggle - Toggle pause/resume
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json()

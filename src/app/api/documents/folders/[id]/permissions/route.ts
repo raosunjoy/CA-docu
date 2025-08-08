@@ -119,7 +119,7 @@ async function validatePermissionUsers(permissions: z.infer<typeof permissionSch
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -127,7 +127,8 @@ export async function GET(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     await validateFolderAccess(folderId, user.orgId, user.sub)
@@ -167,7 +168,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -175,7 +176,8 @@ export async function POST(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     const body = await request.json()
@@ -238,7 +240,7 @@ export async function POST(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -246,7 +248,8 @@ export async function PUT(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     const body = await request.json()

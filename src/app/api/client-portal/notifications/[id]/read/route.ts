@@ -34,11 +34,12 @@ async function verifyClientToken(request: NextRequest) {
 // Mark notification as read
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const client = await verifyClientToken(request)
-    const notificationId = params.id
+    const { id } = await params
+    const notificationId = id
 
     // Verify notification belongs to client
     const notification = await prisma.clientNotification.findFirst({

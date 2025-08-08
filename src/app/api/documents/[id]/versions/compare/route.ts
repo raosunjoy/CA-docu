@@ -304,7 +304,7 @@ async function generateVersionComparison(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -312,7 +312,8 @@ export async function GET(
   }
 
   const { user } = authResult
-  const documentId = params.id
+  const { id } = await params
+    const documentId = id
   const { searchParams } = new URL(request.url)
 
   try {
@@ -358,7 +359,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -366,7 +367,8 @@ export async function POST(
   }
 
   const { user } = authResult
-  const documentId = params.id
+  const { id } = await params
+    const documentId = id
 
   try {
     await validateDocumentAccess(documentId, user.orgId, user.sub)

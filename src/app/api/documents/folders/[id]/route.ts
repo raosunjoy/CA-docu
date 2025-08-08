@@ -174,7 +174,7 @@ async function checkFolderNameConflict(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -182,7 +182,8 @@ export async function GET(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     const folder = await validateFolderAccess(folderId, user.orgId, user.sub, 'view')
@@ -276,7 +277,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -284,7 +285,8 @@ export async function PUT(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     const body = await request.json()
@@ -388,7 +390,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -396,7 +398,8 @@ export async function DELETE(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     await validateFolderAccess(folderId, user.orgId, user.sub, 'delete')
@@ -438,7 +441,7 @@ export async function DELETE(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -446,7 +449,8 @@ export async function PATCH(
   }
 
   const { user } = authResult
-  const folderId = params.id
+  const { id } = await params
+    const folderId = id
 
   try {
     const body = await request.json()

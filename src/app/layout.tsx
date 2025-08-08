@@ -137,10 +137,10 @@ export default function RootLayout({
                   navigator.serviceWorker.register('/sw.js', {
                     scope: '/',
                     updateViaCache: 'none'
-                  }).then(function(registration) {
-                    console.log('SW registered: ', registration);
-                  }).catch(function(registrationError) {
-                    console.log('SW registration failed: ', registrationError);
+                  }).then(function() {
+                    // SW registered successfully
+                  }).catch(function() {
+                    // SW registration failed - could log to error service in production
                   });
                 });
               }

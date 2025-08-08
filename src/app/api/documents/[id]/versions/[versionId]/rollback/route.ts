@@ -230,7 +230,7 @@ async function rollbackToVersion(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; versionId: string } }
+  { params }: { params: Promise<{ id: string; versionId: string }> }
 ) {
   const authResult = await authMiddleware()(request)
   if (authResult instanceof NextResponse) {
@@ -238,8 +238,8 @@ export async function POST(
   }
 
   const { user } = authResult
-  const documentId = params.id
-  const versionId = params.versionId
+  const { id, versionId } = await params
+  const documentId = id
 
   try {
     await validateDocumentAccess(documentId, user.orgId, user.sub)

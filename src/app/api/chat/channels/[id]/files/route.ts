@@ -11,10 +11,11 @@ import type { APIResponse } from '../../../../../../types'
 // POST /api/chat/channels/[id]/files - Upload file to channel
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
+    const { id } = await params
     if (!user) {
       return NextResponse.json<APIResponse>({
         success: false,
@@ -25,7 +26,7 @@ export async function POST(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const channelId = id
 
     // Verify user has access to channel
     const isMember = await chatService.isChannelMember(channelId, user.id)
@@ -190,10 +191,11 @@ export async function POST(
 // GET /api/chat/channels/[id]/files - Get channel files
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await authenticateRequest(request)
+    const { id } = await params
     if (!user) {
       return NextResponse.json<APIResponse>({
         success: false,
@@ -204,7 +206,7 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const channelId = params.id
+    const channelId = id
 
     // Verify user has access to channel
     const isMember = await chatService.isChannelMember(channelId, user.id)
