@@ -3,11 +3,12 @@ import { forwardRef, HTMLAttributes } from 'react'
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'sm' | 'md' | 'lg'
   shadow?: 'sm' | 'md' | 'lg'
+  clickable?: boolean
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className = '', padding = 'md', shadow = 'md', children, ...props }, ref) => {
-    const baseClasses = 'bg-white rounded-lg border border-gray-200'
+  ({ className = '', padding = 'md', shadow = 'md', clickable = false, children, ...props }, ref) => {
+    const baseClasses = `bg-white rounded-lg border border-gray-200 ${clickable ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`
     
     const paddingClasses = {
       sm: 'p-4',

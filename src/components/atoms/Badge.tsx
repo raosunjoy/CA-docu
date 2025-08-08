@@ -4,7 +4,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info'
+  variant?: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'destructive'
   size?: 'sm' | 'md' | 'lg'
   rounded?: boolean
   removable?: boolean
@@ -59,6 +59,10 @@ const Badge: React.FC<BadgeProps> = ({
     info: [
       'bg-blue-100 text-blue-800 border-blue-200',
       'hover:bg-blue-200',
+    ],
+    destructive: [
+      'bg-red-100 text-red-800 border-red-200',
+      'hover:bg-red-200',
     ],
   }
 

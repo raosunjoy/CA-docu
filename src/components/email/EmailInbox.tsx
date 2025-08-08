@@ -22,6 +22,10 @@ import {
 
 interface EmailInboxProps {
   userId: string
+  onEmailSelect?: (emailId: string) => void
+  selectedEmailId?: string | null
+  folder?: string
+  onEmailsLoaded?: (emails: any[]) => void
   className?: string
 }
 
@@ -166,7 +170,14 @@ const EmailListItem: React.FC<EmailListItemProps> = ({
   )
 }
 
-export const EmailInbox: React.FC<EmailInboxProps> = ({ userId, className = '' }) => {
+export const EmailInbox: React.FC<EmailInboxProps> = ({ 
+  userId, 
+  onEmailSelect,
+  selectedEmailId,
+  folder,
+  onEmailsLoaded,
+  className = '' 
+}) => {
   const [emails, setEmails] = useState<any[]>([])
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -203,6 +214,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ userId, className = '' }
         const result = await response.json()
         setEmails(result.data)
         setHasMore(result.pagination.hasMore)
+        onEmailsLoaded?.(result.data)
       }
     } catch (error) {
       console.error('Failed to load emails:', error)
@@ -270,6 +282,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ userId, className = '' }
       newSelected.add(email.id)
     }
     setSelectedEmails(newSelected)
+    // Also trigger the email selection callback
+    onEmailSelect?.(email.id)
   }
 
   const handleToggleRead = async (emailId: string, isRead: boolean) => {

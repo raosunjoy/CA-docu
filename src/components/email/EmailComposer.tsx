@@ -9,7 +9,7 @@ import {
   X, 
   Plus,
   Save,
-  Template,
+  FileText as Template,
   User,
   Clock,
   AlertCircle,

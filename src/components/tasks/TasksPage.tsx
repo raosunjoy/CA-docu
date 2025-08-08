@@ -8,6 +8,7 @@ import { Modal } from '@/components/atoms/Modal'
 import { KanbanBoard } from './KanbanBoard'
 import { TaskForm } from './TaskForm'
 import { TaskFilters } from './TaskFilters'
+import { AITaskSuggestions } from '@/components/ai/AITaskSuggestions'
 
 type ViewMode = 'kanban' | 'list' | 'calendar'
 
@@ -101,6 +102,20 @@ export const TasksPage: React.FC = () => {
     }
     setTasks(prev => [...prev, newTask])
     setIsCreateModalOpen(false)
+  }
+
+  const handleCreateFromAISuggestion = (suggestion: any) => {
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title: suggestion.title,
+      description: suggestion.description,
+      status: 'TODO',
+      priority: suggestion.priority,
+      dueDate: suggestion.suggestedDueDate,
+      tags: suggestion.category ? [suggestion.category, 'AI-Suggested'] : ['AI-Suggested'],
+      createdAt: new Date().toISOString(),
+    }
+    setTasks(prev => [...prev, newTask])
   }
 
   const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
@@ -247,6 +262,14 @@ export const TasksPage: React.FC = () => {
         </div>
 
         <TaskFilters filters={filters} onFiltersChange={setFilters} />
+      </div>
+
+      {/* AI Task Suggestions */}
+      <div className="mb-6">
+        <AITaskSuggestions 
+          onCreateTask={handleCreateFromAISuggestion}
+          currentTasks={tasks}
+        />
       </div>
 
       {/* Content */}

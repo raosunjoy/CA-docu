@@ -6,6 +6,7 @@ import { PartnerDashboard } from './widgets/PartnerDashboard'
 import { ManagerDashboard } from './widgets/ManagerDashboard'
 import { AssociateDashboard } from './widgets/AssociateDashboard'
 import { InternDashboard } from './widgets/InternDashboard'
+import { ProactiveAIAssistant } from '@/components/ai/ProactiveAIAssistant'
 import { Card, CardContent } from '@/components/atoms/Card'
 import { Button } from '@/components/atoms/Button'
 import { Badge } from '@/components/atoms/Badge'
@@ -63,17 +64,27 @@ export const Dashboard: React.FC = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Welcome back, {user.firstName}!
-          </h2>
-          <p className="text-gray-600">
-            Here&apos;s what&apos;s happening with your work today.
-          </p>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Main Dashboard Content */}
+          <div className="lg:col-span-3">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Welcome back, {user.firstName}!
+              </h2>
+              <p className="text-gray-600">
+                Here&apos;s what&apos;s happening with your work today.
+              </p>
+            </div>
 
-        {/* Role-based Dashboard */}
-        {getRoleDashboard(user.role, organizationId, user.id)}
+            {/* Role-based Dashboard */}
+            {getRoleDashboard(user.role, organizationId, user.id)}
+          </div>
+
+          {/* AI Assistant Sidebar */}
+          <div className="lg:col-span-1">
+            <ProactiveAIAssistant />
+          </div>
+        </div>
 
         {/* Feature Navigation */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">

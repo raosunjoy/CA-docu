@@ -70,6 +70,17 @@ const navigationItems: NavigationItem[] = [
     badge: '5',
   },
   {
+    id: 'ai-assistant',
+    label: 'AI Assistant',
+    href: '/ai-assistant',
+    icon: (
+      <div className="w-5 h-5 bg-gradient-to-r from-purple-600 to-blue-600 rounded flex items-center justify-center">
+        <span className="text-white text-xs">🤖</span>
+      </div>
+    ),
+    badge: 'NEW',
+  },
+  {
     id: 'time-tracking',
     label: 'Time Tracking',
     href: '/time-tracking',
@@ -141,6 +152,9 @@ export const Navigation: React.FC<NavigationProps> = ({
   const handleNavigation = (href: string) => {
     if (onNavigate) {
       onNavigate(href)
+    } else {
+      // Use Next.js routing
+      window.location.href = href
     }
   }
 
@@ -235,13 +249,13 @@ export const Navigation: React.FC<NavigationProps> = ({
           {isProfileOpen && !collapsed && (
             <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
               <button
-                onClick={() => handleNavigation('/profile')}
+                onClick={() => window.location.href = '/profile'}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
                 Profile Settings
               </button>
               <button
-                onClick={() => handleNavigation('/preferences')}
+                onClick={() => window.location.href = '/preferences'}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
                 Preferences

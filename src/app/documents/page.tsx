@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/common'
-import { DocumentUpload } from '@/components/document/DocumentUpload'
+import { AIDocumentUpload } from '@/components/ai/AIDocumentUpload'
 import { DocumentList } from '@/components/document/DocumentList'
 import { FolderTree } from '@/components/document/FolderTree'
 
@@ -40,8 +40,9 @@ const DocumentsPageHeader = ({
       <Button
         onClick={onUploadClick}
         disabled={showUpload}
+        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
       >
-        Upload Documents
+        🤖 AI Upload Documents
       </Button>
     </div>
   </div>
@@ -76,10 +77,11 @@ const DocumentsPageContent = ({
     <div className="lg:col-span-3 space-y-6">
       {showUpload && (
         <div className="bg-white rounded-lg border p-6">
-          <DocumentUpload
+          <AIDocumentUpload
             {...(selectedFolder?.id && { folderId: selectedFolder.id })}
             onUploadComplete={onUploadComplete}
             onCancel={onUploadCancel}
+            enableAI={true}
           />
         </div>
       )}

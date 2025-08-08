@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '../../../../../lib/auth'
+import { aiDatabase } from '@/services/ai-database'
+import { AISecurityMiddleware } from '@/middleware/ai-security'
 
 interface EmailContent {
   emailId: string
@@ -25,20 +27,71 @@ interface TaskSuggestion {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  let userId = 'unknown'
+  
+  // Security middleware check (but we still need our own auth since this endpoint has specific auth logic)
+  const securityCheck = await AISecurityMiddleware.protect(
+    request, 
+    '/api/emails/ai/task-suggestions',
+    { requireAuth: false } // We'll handle auth manually since this endpoint has special auth requirements
+  )
+  if (securityCheck) {
+    return securityCheck // Return security error response
+  }
+  
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '')
     if (!token) {
+      await aiDatabase.logUsage({
+        userId: 'unauthorized',
+        organizationId: 'unknown',
+        endpoint: '/api/emails/ai/task-suggestions',
+        requestType: 'TASK_SUGGESTION',
+        userRole: 'UNKNOWN',
+        businessContext: 'email_to_task',
+        success: false,
+        errorMessage: 'Unauthorized - missing token',
+        processingTime: Date.now() - startTime
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const payload = await verifyToken(token)
     if (!payload) {
+      await aiDatabase.logUsage({
+        userId: 'unauthorized',
+        organizationId: 'unknown',
+        endpoint: '/api/emails/ai/task-suggestions',
+        requestType: 'TASK_SUGGESTION',
+        userRole: 'UNKNOWN',
+        businessContext: 'email_to_task',
+        success: false,
+        errorMessage: 'Unauthorized - invalid token',
+        processingTime: Date.now() - startTime
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    userId = payload.userId || payload.sub || 'unknown'
+    const organizationId = payload.organizationId || 'demo-org'
+    const userRole = payload.role || 'ASSOCIATE'
 
     const emailContent: EmailContent = await request.json()
 
     if (!emailContent.emailId || !emailContent.fromAddress) {
+      await aiDatabase.logUsage({
+        userId,
+        organizationId,
+        endpoint: '/api/emails/ai/task-suggestions',
+        requestType: 'TASK_SUGGESTION',
+        userRole,
+        businessContext: 'email_to_task',
+        success: false,
+        errorMessage: 'Missing required fields: emailId or fromAddress',
+        processingTime: Date.now() - startTime
+      })
+
       return NextResponse.json(
         { error: 'Email ID and from address are required' },
         { status: 400 }
@@ -46,17 +99,80 @@ export async function POST(request: NextRequest) {
     }
 
     const suggestion = await generateTaskSuggestion(emailContent)
+    const processingTime = Date.now() - startTime
+
+    // Store AI analysis result
+    try {
+      const analysisId = await aiDatabase.storeAnalysisResult({
+        requestId: crypto.randomUUID(),
+        userId,
+        organizationId,
+        type: 'TASK_SUGGESTION',
+        inputData: emailContent,
+        outputData: suggestion,
+        confidence: suggestion.confidence,
+        processingTime,
+        aiModel: 'rule-based-ai',
+        cached: false
+      })
+
+      // Track the generated task suggestion
+      if (suggestion.confidence > 0.7) {
+        await aiDatabase.trackGeneratedTask({
+          taskId: `pending_${emailContent.emailId}`,
+          sourceType: 'EMAIL',
+          sourceId: emailContent.emailId,
+          aiAnalysisId: analysisId,
+          confidence: suggestion.confidence
+        })
+      }
+    } catch (dbError) {
+      console.error('Database storage failed:', dbError)
+      // Don't fail the request if database storage fails
+    }
+
+    // Log successful usage
+    await aiDatabase.logUsage({
+      userId,
+      organizationId,
+      endpoint: '/api/emails/ai/task-suggestions',
+      requestType: 'TASK_SUGGESTION',
+      userRole,
+      businessContext: 'email_to_task',
+      success: true,
+      tokensUsed: Math.ceil(JSON.stringify(emailContent).length / 4), // Approximate tokens
+      processingTime
+    })
 
     return NextResponse.json({
       success: true,
       data: suggestion,
       meta: {
         timestamp: new Date().toISOString(),
-        requestId: crypto.randomUUID()
+        requestId: crypto.randomUUID(),
+        processingTime
       }
     })
   } catch (error) {
     console.error('AI task suggestion API error:', error)
+    
+    // Log failed usage
+    try {
+      await aiDatabase.logUsage({
+        userId,
+        organizationId: 'unknown',
+        endpoint: '/api/emails/ai/task-suggestions',
+        requestType: 'TASK_SUGGESTION',
+        userRole: 'UNKNOWN',
+        businessContext: 'email_to_task',
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        processingTime: Date.now() - startTime
+      })
+    } catch (logError) {
+      console.error('Failed to log task suggestion error:', logError)
+    }
+    
     return NextResponse.json(
       { 
         success: false,
