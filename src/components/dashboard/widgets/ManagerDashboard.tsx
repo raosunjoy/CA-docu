@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Card } from '../../common/Card'
+import { Card } from '../../atoms/Card'
 import type { DashboardMetrics, WorkloadMetricData } from '../../../types'
 
 interface ManagerDashboardProps {

@@ -75,7 +75,7 @@ export const metadata: Metadata = {
       { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
     ],
     other: [
-      { rel: 'mask-icon', url: '/icons/safari-pinned-tab.svg', color: '#2563eb' }
+      { rel: 'mask-icon', url: '/icons/safari-pinned-tab.svg', color: '#7C3AED' }
     ]
   }
 }
@@ -108,7 +108,7 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#2563eb" />
+        <meta name="msapplication-TileColor" content="#7C3AED" />
         <meta name="msapplication-tap-highlight" content="no" />
         
         {/* Preconnect to external domains */}
