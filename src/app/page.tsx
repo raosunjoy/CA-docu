@@ -1,132 +1,175 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { LandingPage } from '@/components/landing/LandingPage'
-import { SimpleDashboard } from '@/components/dashboard/SimpleDashboard'
-import type { UserRole } from '@/types'
+import { useState } from 'react'
 
-interface User {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  role: UserRole
-  organizationId: string
-}
-
-export default function Home(): React.JSX.Element {
-  const [user, setUser] = useState<User | null>(null)
+export default function Home() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [user, setUser] = useState(null)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    checkAuthentication()
-  }, [])
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
-  const checkAuthentication = async () => {
     try {
-      // Check if we're in the browser (client-side)
-      if (typeof window === 'undefined') {
-        return
-      }
-
-      const token = localStorage.getItem('token')
-      if (!token) {
-        return
-      }
-
-      // Try to validate token with server
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          deviceId: 'web'
+        })
       })
 
-      if (response.ok) {
-        const userData = await response.json()
-        if (userData.success && userData.user) {
-          setUser(userData.user)
-        }
+      const data = await response.json()
+
+      if (data.success) {
+        setUser(data.data.user)
+        localStorage.setItem('token', data.data.token)
       } else {
-        // Token invalid, remove it
-        localStorage.removeItem('token')
+        setError('Login failed')
       }
     } catch (error) {
-      console.error('Authentication check failed:', error)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token')
-      }
+      setError('Login failed')
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const handleAuthSuccess = () => {
-    checkAuthentication()
   }
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token')
-    }
     setUser(null)
+    localStorage.removeItem('token')
   }
 
-  if (loading) {
+  const fillDemo = (role) => {
+    setEmail(`${role}@demo-ca.com`)
+    setPassword('demo123')
+  }
+
+  if (user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex flex-col justify-center items-center">
-        <div className="animate-pulse text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl mx-auto mb-4 animate-spin"></div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent mb-2">Zetra</h1>
-          <p className="text-sm text-purple-600">Loading your workspace...</p>
+      <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ background: '#8b5cf6', color: 'white', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+          <h1>Welcome, {user.firstName} {user.lastName}!</h1>
+          <p>Role: {user.role}</p>
+          <button onClick={handleLogout} style={{ background: '#fff', color: '#8b5cf6', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer' }}>
+            Logout
+          </button>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+          <div style={{ background: '#f3f4f6', padding: '20px', borderRadius: '10px' }}>
+            <h3>Recent Tasks</h3>
+            <ul>
+              <li>GST Return Filing - ABC Ltd (Due: Jan 15)</li>
+              <li>Audit Planning - XYZ Company (Due: Jan 20)</li>
+              <li>TDS Return Preparation (Due: Jan 10)</li>
+            </ul>
+          </div>
+          
+          <div style={{ background: '#f3f4f6', padding: '20px', borderRadius: '10px' }}>
+            <h3>Statistics</h3>
+            <p>Tasks Today: <strong>12</strong></p>
+            <p>Clients: <strong>48</strong></p>
+            <p>Revenue: <strong>₹2.4L</strong></p>
+          </div>
+          
+          <div style={{ background: '#f3f4f6', padding: '20px', borderRadius: '10px' }}>
+            <h3>Quick Actions</h3>
+            <button style={{ display: 'block', width: '100%', margin: '5px 0', padding: '10px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+              Create New Task
+            </button>
+            <button style={{ display: 'block', width: '100%', margin: '5px 0', padding: '10px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+              Upload Document
+            </button>
+            <button style={{ display: 'block', width: '100%', margin: '5px 0', padding: '10px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+              Generate Report
+            </button>
+          </div>
         </div>
       </div>
     )
   }
 
-  if (!user) {
-    return <LandingPage onAuthSuccess={handleAuthSuccess} />
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50">
-      {/* Glass Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-purple-100 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg mr-3"></div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">Zetra</h1>
-              <span className="ml-2 text-sm text-purple-600 font-medium">CA Platform</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-purple-600">{user.role}</p>
-              </div>
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-purple-700 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                {user.firstName.charAt(0)}
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
-              >
-                Logout
-              </button>
-            </div>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #e0e7ff 0%, #fdfbff 50%, #e0e7ff 100%)', fontFamily: 'Arial, sans-serif' }}>
+      <div style={{ background: 'rgba(255, 255, 255, 0.9)', padding: '40px', borderRadius: '20px', boxShadow: '0 20px 40px rgba(139, 92, 246, 0.1)', width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <div style={{ width: '60px', height: '60px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'white', fontSize: '24px', fontWeight: 'bold' }}>
+            Z
+          </div>
+          <h1 style={{ color: '#8b5cf6', margin: '0 0 10px 0' }}>Zetra</h1>
+          <p style={{ color: '#6b7280', margin: 0 }}>CA Productivity Platform</p>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <p style={{ marginBottom: '10px', color: '#374151' }}>Demo Credentials:</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <button type="button" onClick={() => fillDemo('partner')} style={{ padding: '8px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              Partner
+            </button>
+            <button type="button" onClick={() => fillDemo('manager')} style={{ padding: '8px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              Manager
+            </button>
+            <button type="button" onClick={() => fillDemo('associate')} style={{ padding: '8px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              Associate
+            </button>
+            <button type="button" onClick={() => fillDemo('intern')} style={{ padding: '8px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>
+              Intern
+            </button>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
-        <SimpleDashboard
-          organizationId={user.organizationId}
-          userId={user.id}
-          userRole={user.role}
-          className="px-4 py-6 sm:px-0"
-        />
-      </main>
+        <form onSubmit={handleLogin}>
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', padding: '10px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px' }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', color: '#374151', fontSize: '14px', fontWeight: '500' }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '10px', fontSize: '16px', boxSizing: 'border-box' }}
+              placeholder="Enter your email"
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', color: '#374151', fontSize: '14px', fontWeight: '500' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '10px', fontSize: '16px', boxSizing: 'border-box' }}
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: '100%', padding: '12px', background: loading ? '#9ca3af' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', boxSizing: 'border-box' }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
