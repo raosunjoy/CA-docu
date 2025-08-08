@@ -1,0 +1,172 @@
+
+> zetra-platform@1.0.0 dev
+> next dev
+
+   ▲ Next.js 15.4.5
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.29.252:3000
+   - Environments: .env
+   - Experiments (use with caution):
+     ✓ optimizeCss
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 11.5s
+ ○ Compiling /api/auth/login ...
+ ✓ Compiled /api/auth/login in 562ms (496 modules)
+prisma:query SELECT "public"."users"."id", "public"."users"."organizationId", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."lastLoginAt", "public"."users"."createdAt", "public"."users"."updatedAt" FROM "public"."users" WHERE ("public"."users"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."organizations"."id", "public"."organizations"."name" FROM "public"."organizations" WHERE "public"."organizations"."id" IN ($1) OFFSET $2
+prisma:query UPDATE "public"."users" SET "lastLoginAt" = $1, "updatedAt" = $2 WHERE ("public"."users"."id" = $3 AND 1=1) RETURNING "public"."users"."id", "public"."users"."organizationId", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."lastLoginAt", "public"."users"."createdAt", "public"."users"."updatedAt"
+prisma:query INSERT INTO "public"."audit_logs" ("id","organizationId","userId","action","category","severity","description","resourceType","resourceId","newValues","ipAddress","userAgent","complianceFlags","metadata","tags","occurredAt","createdAt") VALUES ($1,$2,$3,CAST($4::text AS "public"."AuditAction"),CAST($5::text AS "public"."AuditCategory"),CAST($6::text AS "public"."AuditSeverity"),$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING "public"."audit_logs"."id", "public"."audit_logs"."organizationId", "public"."audit_logs"."userId", "public"."audit_logs"."sessionId", "public"."audit_logs"."action"::text, "public"."audit_logs"."category"::text, "public"."audit_logs"."severity"::text, "public"."audit_logs"."description", "public"."audit_logs"."resourceType", "public"."audit_logs"."resourceId", "public"."audit_logs"."resourceName", "public"."audit_logs"."oldValues", "public"."audit_logs"."newValues", "public"."audit_logs"."changesSummary", "public"."audit_logs"."ipAddress", "public"."audit_logs"."userAgent", "public"."audit_logs"."deviceId", "public"."audit_logs"."location", "public"."audit_logs"."requestId", "public"."audit_logs"."endpoint", "public"."audit_logs"."method", "public"."audit_logs"."complianceFlags", "public"."audit_logs"."riskScore", "public"."audit_logs"."metadata", "public"."audit_logs"."tags", "public"."audit_logs"."checksum", "public"."audit_logs"."previousLogId", "public"."audit_logs"."occurredAt", "public"."audit_logs"."createdAt"
+ POST /api/auth/login 200 in 1066ms
+ ○ Compiling / ...
+ ✓ Compiled / in 8.1s (749 modules)
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+ GET / 200 in 8280ms
+ GET /? 200 in 69ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 3.9s (754 modules)
+ ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+ GET /icons/icon-192x192.png 404 in 4041ms
+ GET /icons/icon-512x512.png 404 in 3593ms
+ GET /icons/icon-512x512.png 404 in 20ms
+ GET /icons/icon-192x192.png 404 in 48ms
+ GET /icons/icon-512x512.png 404 in 48ms
+ GET / 200 in 95ms
+ GET /icons/icon-192x192.png 404 in 25ms
+ GET /icons/icon-512x512.png 404 in 25ms
+ GET /icons/icon-192x192.png 404 in 40ms
+ GET /icons/icon-512x512.png 404 in 42ms
+ GET /icons/icon-192x192.png 404 in 68ms
+prisma:query SELECT 1
+prisma:query SELECT "public"."users"."id", "public"."users"."organizationId", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."lastLoginAt", "public"."users"."createdAt", "public"."users"."updatedAt" FROM "public"."users" WHERE ("public"."users"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."organizations"."id", "public"."organizations"."name" FROM "public"."organizations" WHERE "public"."organizations"."id" IN ($1) OFFSET $2
+prisma:query UPDATE "public"."users" SET "lastLoginAt" = $1, "updatedAt" = $2 WHERE ("public"."users"."id" = $3 AND 1=1) RETURNING "public"."users"."id", "public"."users"."organizationId", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."lastLoginAt", "public"."users"."createdAt", "public"."users"."updatedAt"
+prisma:query INSERT INTO "public"."audit_logs" ("id","organizationId","userId","action","category","severity","description","resourceType","resourceId","newValues","ipAddress","userAgent","complianceFlags","metadata","tags","occurredAt","createdAt") VALUES ($1,$2,$3,CAST($4::text AS "public"."AuditAction"),CAST($5::text AS "public"."AuditCategory"),CAST($6::text AS "public"."AuditSeverity"),$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING "public"."audit_logs"."id", "public"."audit_logs"."organizationId", "public"."audit_logs"."userId", "public"."audit_logs"."sessionId", "public"."audit_logs"."action"::text, "public"."audit_logs"."category"::text, "public"."audit_logs"."severity"::text, "public"."audit_logs"."description", "public"."audit_logs"."resourceType", "public"."audit_logs"."resourceId", "public"."audit_logs"."resourceName", "public"."audit_logs"."oldValues", "public"."audit_logs"."newValues", "public"."audit_logs"."changesSummary", "public"."audit_logs"."ipAddress", "public"."audit_logs"."userAgent", "public"."audit_logs"."deviceId", "public"."audit_logs"."location", "public"."audit_logs"."requestId", "public"."audit_logs"."endpoint", "public"."audit_logs"."method", "public"."audit_logs"."complianceFlags", "public"."audit_logs"."riskScore", "public"."audit_logs"."metadata", "public"."audit_logs"."tags", "public"."audit_logs"."checksum", "public"."audit_logs"."previousLogId", "public"."audit_logs"."occurredAt", "public"."audit_logs"."createdAt"
+ POST /api/auth/login 200 in 480ms
+prisma:query SELECT 1
+prisma:query SELECT "public"."users"."id", "public"."users"."organizationId", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."lastLoginAt", "public"."users"."createdAt", "public"."users"."updatedAt" FROM "public"."users" WHERE ("public"."users"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."organizations"."id", "public"."organizations"."name" FROM "public"."organizations" WHERE "public"."organizations"."id" IN ($1) OFFSET $2
+prisma:query UPDATE "public"."users" SET "lastLoginAt" = $1, "updatedAt" = $2 WHERE ("public"."users"."id" = $3 AND 1=1) RETURNING "public"."users"."id", "public"."users"."organizationId", "public"."users"."email", "public"."users"."passwordHash", "public"."users"."firstName", "public"."users"."lastName", "public"."users"."role"::text, "public"."users"."isActive", "public"."users"."lastLoginAt", "public"."users"."createdAt", "public"."users"."updatedAt"
+prisma:query INSERT INTO "public"."audit_logs" ("id","organizationId","userId","action","category","severity","description","resourceType","resourceId","newValues","ipAddress","userAgent","complianceFlags","metadata","tags","occurredAt","createdAt") VALUES ($1,$2,$3,CAST($4::text AS "public"."AuditAction"),CAST($5::text AS "public"."AuditCategory"),CAST($6::text AS "public"."AuditSeverity"),$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING "public"."audit_logs"."id", "public"."audit_logs"."organizationId", "public"."audit_logs"."userId", "public"."audit_logs"."sessionId", "public"."audit_logs"."action"::text, "public"."audit_logs"."category"::text, "public"."audit_logs"."severity"::text, "public"."audit_logs"."description", "public"."audit_logs"."resourceType", "public"."audit_logs"."resourceId", "public"."audit_logs"."resourceName", "public"."audit_logs"."oldValues", "public"."audit_logs"."newValues", "public"."audit_logs"."changesSummary", "public"."audit_logs"."ipAddress", "public"."audit_logs"."userAgent", "public"."audit_logs"."deviceId", "public"."audit_logs"."location", "public"."audit_logs"."requestId", "public"."audit_logs"."endpoint", "public"."audit_logs"."method", "public"."audit_logs"."complianceFlags", "public"."audit_logs"."riskScore", "public"."audit_logs"."metadata", "public"."audit_logs"."tags", "public"."audit_logs"."checksum", "public"."audit_logs"."previousLogId", "public"."audit_logs"."occurredAt", "public"."audit_logs"."createdAt"
+ POST /api/auth/login 200 in 342ms
+ ✓ Compiled /_error in 407ms (900 modules)
+ ⨯ [Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/.next/server/pages/_document.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/require.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/utils.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/swc/options.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/swc/index.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/router-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/.next/server/pages/_document.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/require.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/utils.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/swc/options.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/swc/index.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/router-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/post-process.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/render.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/builtin/_error.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-default-error-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/dev/next-dev-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/next.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/post-process.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/render.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/builtin/_error.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-default-error-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/dev/next-dev-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/next.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [TypeError: __webpack_require__(...) is not a constructor]
+ ⨯ [TypeError: __webpack_require__(...) is not a constructor]
+ ⨯ [Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/post-process.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/render.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/builtin/_error.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-default-error-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/dev/next-dev-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/next.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/post-process.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/render.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/builtin/_error.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-default-error-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/dev/next-dev-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/next.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ⨯ [TypeError: __webpack_require__(...) is not a constructor]
+ ⨯ [TypeError: __webpack_require__(...) is not a constructor]
+ ⨯ [Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/post-process.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/render.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/builtin/_error.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-default-error-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/dev/next-dev-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/next.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: Cannot find module 'critters'
+Require stack:
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/post-process.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/render.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/module.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/route-modules/pages/builtin/_error.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/load-default-error-components.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/dev/next-dev-server.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/next.js
+- /Users/keerthirao/Documents/GitHub/projects/CA-docu/node_modules/next/dist/server/lib/start-server.js] {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ GET / 500 in 2668ms
+ GET / 500 in 313ms
+[?25h

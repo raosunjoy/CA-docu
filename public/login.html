@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zetra - CA Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #fdfbff 50%, #e0e7ff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        h1 {
+            color: #8b5cf6;
+            margin: 0 0 10px 0;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            margin: 0;
+        }
+        
+        .demo-section {
+            margin-bottom: 20px;
+        }
+        
+        .demo-title {
+            margin-bottom: 10px;
+            color: #374151;
+        }
+        
+        .demo-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .demo-btn {
+            padding: 8px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .demo-btn:hover {
+            background: #e5e7eb;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .submit-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            color: #059669;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .dashboard {
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .header {
+            background: #8b5cf6;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .logout-btn {
+            background: white;
+            color: #8b5cf6;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginForm">
+            <div class="logo">
+                <div class="logo-icon">Z</div>
+                <h1>Zetra</h1>
+                <p class="subtitle">CA Productivity Platform</p>
+            </div>
+
+            <div class="demo-section">
+                <p class="demo-title">Demo Credentials:</p>
+                <div class="demo-buttons">
+                    <button class="demo-btn" onclick="fillCredentials('partner@demo-ca.com', 'demo123')">Partner</button>
+                    <button class="demo-btn" onclick="fillCredentials('manager@demo-ca.com', 'demo123')">Manager</button>
+                    <button class="demo-btn" onclick="fillCredentials('associate@demo-ca.com', 'demo123')">Associate</button>
+                    <button class="demo-btn" onclick="fillCredentials('intern@demo-ca.com', 'demo123')">Intern</button>
+                </div>
+            </div>
+
+            <div id="message"></div>
+
+            <form onsubmit="login(event)">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required placeholder="Enter your email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required placeholder="Enter your password">
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Sign In</button>
+            </form>
+        </div>
+
+        <div id="dashboard" style="display: none;">
+            <div class="header">
+                <h2 id="welcomeMsg"></h2>
+                <p id="userRole"></p>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+            <div>
+                <h3>Recent Tasks</h3>
+                <ul>
+                    <li>GST Return Filing - ABC Ltd (Due: Jan 15)</li>
+                    <li>Audit Planning - XYZ Company (Due: Jan 20)</li>
+                    <li>TDS Return Preparation (Due: Jan 10)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillCredentials(email, password) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = password;
+        }
+
+        async function login(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in...';
+            messageDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        deviceId: 'web-' + Math.random().toString(36).substr(2, 9)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.data && data.data.user) {
+                    // Success - show dashboard
+                    messageDiv.innerHTML = '<div class="success">Login successful!</div>';
+                    
+                    setTimeout(() => {
+                        document.getElementById('loginForm').style.display = 'none';
+                        document.getElementById('dashboard').style.display = 'block';
+                        document.getElementById('welcomeMsg').textContent = 
+                            'Welcome, ' + data.data.user.firstName + ' ' + data.data.user.lastName + '!';
+                        document.getElementById('userRole').textContent = 'Role: ' + data.data.user.role;
+                        
+                        // Store token
+                        localStorage.setItem('zetra_token', data.data.token);
+                    }, 1000);
+                    
+                } else {
+                    // Show error
+                    messageDiv.innerHTML = '<div class="error">Login failed: ' + (data.message || 'Invalid credentials') + '</div>';
+                }
+            } catch (error) {
+                messageDiv.innerHTML = '<div class="error">Login failed: Network error</div>';
+                console.error('Login error:', error);
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign In';
+        }
+
+        function logout() {
+            localStorage.removeItem('zetra_token');
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('message').innerHTML = '';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // Check if already logged in
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('zetra_token');
+            if (token) {
+                // Could validate token here, but for simplicity just show login form
+                localStorage.removeItem('zetra_token');
+            }
+        });
+    </script>
+</body>
+</html>
