@@ -145,7 +145,6 @@ function getApplicableRegions(framework: ComplianceFramework): string[] {
     }
     return regions[framework] || ['Global']
   }
-}
 
 export async function POST(request: NextRequest) {
   try {

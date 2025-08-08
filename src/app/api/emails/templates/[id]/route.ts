@@ -3,8 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../../lib/auth'
 import { type EmailTemplateData } from '../../../../../types'
 
 const prisma = new PrismaClient()
@@ -14,15 +13,20 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const template = await prisma.emailTemplate.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId
+        organizationId: payload.orgId
       },
       include: {
         creator: {
@@ -67,8 +71,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -78,7 +87,7 @@ export async function PATCH(
     const existingTemplate = await prisma.emailTemplate.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId
+        organizationId: payload.orgId
       }
     })
 
@@ -90,7 +99,7 @@ export async function PATCH(
     }
 
     // Check if user can edit (creator or admin)
-    if (existingTemplate.createdBy !== session.user.id && session.user.role !== 'ADMIN') {
+    if (existingTemplate.createdBy !== payload.sub && payload.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Insufficient permissions to edit this template' },
         { status: 403 }
@@ -149,8 +158,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -158,7 +172,7 @@ export async function DELETE(
     const existingTemplate = await prisma.emailTemplate.findFirst({
       where: {
         id: params.id,
-        organizationId: session.user.organizationId
+        organizationId: payload.orgId
       }
     })
 
@@ -170,7 +184,7 @@ export async function DELETE(
     }
 
     // Check if user can delete (creator or admin)
-    if (existingTemplate.createdBy !== session.user.id && session.user.role !== 'ADMIN') {
+    if (existingTemplate.createdBy !== payload.sub && payload.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Insufficient permissions to delete this template' },
         { status: 403 }

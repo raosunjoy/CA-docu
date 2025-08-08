@@ -3,8 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../../lib/auth'
 import { emailService } from '../../../../../lib/email-service'
 import { type EmailToTaskData, type TaskCreationData } from '../../../../../types'
 
@@ -15,8 +14,13 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -26,7 +30,7 @@ export async function POST(
     const email = await prisma.email.findFirst({
       where: {
         id: params.id,
-        account: { userId: session.user.id }
+        account: { userId: payload.sub }
       },
       include: {
         attachments: true,
@@ -50,8 +54,8 @@ export async function POST(
       status: 'TODO',
       priority: emailToTaskData.priority,
       assignedTo: emailToTaskData.assignedTo || null,
-      createdBy: session.user.id,
-      organizationId: session.user.organizationId,
+      createdBy: payload.sub,
+      organizationId: payload.orgId,
       dueDate: emailToTaskData.dueDate || null,
       metadata: {
         sourceType: 'email',
@@ -76,7 +80,7 @@ export async function POST(
     })
 
     // Link email to task
-    await emailService.linkEmailToTask(email.id, task.id, session.user.id)
+    await emailService.linkEmailToTask(email.id, task.id, payload.sub)
 
     // Handle attachments if requested
     if (emailToTaskData.includeAttachments && email.attachments.length > 0) {
@@ -90,7 +94,7 @@ export async function POST(
                 filePath: attachment.filePath || '',
                 fileSize: attachment.size,
                 mimeType: attachment.contentType,
-                uploadedBy: session.user.id
+                uploadedBy: payload.sub
               }
             })
           } catch (error) {
@@ -108,7 +112,7 @@ export async function POST(
             // Find or create tag
             let tag = await prisma.tag.findFirst({
               where: {
-                organizationId: session.user.organizationId,
+                organizationId: payload.orgId,
                 name: tagName
               }
             })
@@ -116,9 +120,9 @@ export async function POST(
             if (!tag) {
               tag = await prisma.tag.create({
                 data: {
-                  organizationId: session.user.organizationId,
+                  organizationId: payload.orgId,
                   name: tagName,
-                  createdBy: session.user.id
+                  createdBy: payload.sub
                 }
               })
             }
@@ -129,7 +133,7 @@ export async function POST(
                 tagId: tag.id,
                 taggableType: 'task',
                 taggableId: task.id,
-                taggedBy: session.user.id
+                taggedBy: payload.sub
               }
             })
           } catch (error) {

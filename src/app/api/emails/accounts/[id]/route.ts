@@ -3,8 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../../../lib/email-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../../lib/auth'
 import { type EmailAccountUpdateData } from '../../../../../types'
 
 export async function GET(
@@ -12,12 +11,17 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const account = await emailService.getEmailAccount(params.id, session.user.id)
+    const payload = await verifyToken(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const account = await emailService.getEmailAccount(params.id, payload.sub)
 
     return NextResponse.json({
       success: true,
@@ -56,8 +60,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -66,7 +75,7 @@ export async function PATCH(
 
     const account = await emailService.updateEmailAccount(
       params.id,
-      session.user.id,
+      payload.sub,
       updateData
     )
 
@@ -99,12 +108,17 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await emailService.deleteEmailAccount(params.id, session.user.id)
+    const payload = await verifyToken(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    await emailService.deleteEmailAccount(params.id, payload.sub)
 
     return NextResponse.json({
       success: true,

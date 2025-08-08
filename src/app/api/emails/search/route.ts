@@ -3,14 +3,18 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../../lib/email-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../lib/auth'
 import { type EmailSearchFilters } from '../../../../types'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
       filters.sortOrder = searchParams.get('sortOrder') as 'asc' | 'desc'
     }
 
-    const result = await emailService.searchEmails(session.user.id, filters, page, limit)
+    const result = await emailService.searchEmails(payload.sub, filters, page, limit)
 
     return NextResponse.json({
       success: true,
@@ -115,8 +119,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -142,7 +151,7 @@ export async function POST(request: NextRequest) {
       ...filters
     }
 
-    const result = await emailService.searchEmails(session.user.id, searchFilters, page, limit)
+    const result = await emailService.searchEmails(payload.sub, searchFilters, page, limit)
 
     // TODO: Implement saved searches if saveSearch is true
     if (saveSearch && searchName) {

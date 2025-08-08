@@ -3,14 +3,18 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../lib/email-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../auth/[...nextauth]/route'
+import { verifyToken } from '../../../lib/auth'
 import { type EmailFilters } from '../../../types'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -64,7 +68,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const result = await emailService.getEmails(session.user.id, filters, page, limit)
+    const result = await emailService.getEmails(payload.sub, filters, page, limit)
 
     return NextResponse.json({
       success: true,
@@ -93,8 +97,13 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -120,17 +129,17 @@ export async function PATCH(request: NextRequest) {
       emailIds.map(async (emailId: string) => {
         switch (action) {
           case 'markRead':
-            return emailService.markEmailAsRead(emailId, session.user.id, true)
+            return emailService.markEmailAsRead(emailId, payload.sub, true)
           case 'markUnread':
-            return emailService.markEmailAsRead(emailId, session.user.id, false)
+            return emailService.markEmailAsRead(emailId, payload.sub, false)
           case 'star':
-            return emailService.starEmail(emailId, session.user.id, true)
+            return emailService.starEmail(emailId, payload.sub, true)
           case 'unstar':
-            return emailService.starEmail(emailId, session.user.id, false)
+            return emailService.starEmail(emailId, payload.sub, false)
           case 'archive':
-            return emailService.archiveEmail(emailId, session.user.id, true)
+            return emailService.archiveEmail(emailId, payload.sub, true)
           case 'unarchive':
-            return emailService.archiveEmail(emailId, session.user.id, false)
+            return emailService.archiveEmail(emailId, payload.sub, false)
           default:
             throw new Error(`Unknown action: ${action}`)
         }

@@ -3,15 +3,19 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../../lib/auth'
 
 const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -24,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause for audit logs
     const where: any = {
-      organizationId: session.user.organizationId,
+      organizationId: payload.orgId,
       createdAt: {
         gte: startDate,
         lte: endDate
@@ -137,8 +141,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -155,11 +164,14 @@ export async function POST(request: NextRequest) {
     // Create audit log entry
     const auditLog = await prisma.auditLog.create({
       data: {
-        organizationId: session.user.organizationId,
-        userId: session.user.id,
+        organizationId: payload.orgId,
+        userId: payload.sub,
         action,
+        category: 'COMPLIANCE',
+        description: `${action} performed on ${resourceType} ${resourceId}`,
         resourceType,
         resourceId,
+        occurredAt: new Date(),
         newValues: details || {},
         ipAddress,
         userAgent: request.headers.get('user-agent')

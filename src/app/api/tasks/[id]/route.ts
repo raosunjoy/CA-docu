@@ -145,9 +145,12 @@ async function performTaskDeletion(taskId: string, task: { title: string; status
     data: {
       organizationId: user.orgId,
       userId: user.sub,
-      action: 'delete',
+      action: 'DELETE',
+      category: 'DATA_MODIFICATION',
+      description: `Task "${task.title}" deleted`,
       resourceType: 'task',
       resourceId: taskId,
+      occurredAt: new Date(),
       oldValues: {
         title: task.title,
         status: task.status,
@@ -370,9 +373,12 @@ async function createAuditLog(
     data: {
       organizationId: user.orgId,
       userId: user.sub,
-      action: 'update',
+      action: 'UPDATE',
+      category: 'DATA_MODIFICATION',
+      description: `Task "${existingTask.title}" updated`,
       resourceType: 'task',
       resourceId: taskId,
+      occurredAt: new Date(),
       oldValues: {
         title: existingTask.title,
         status: existingTask.status,

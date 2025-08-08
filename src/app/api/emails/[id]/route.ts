@@ -3,8 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../lib/auth'
 
 const prisma = new PrismaClient()
 
@@ -13,15 +12,20 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const email = await prisma.email.findFirst({
       where: {
         id: params.id,
-        account: { userId: session.user.id }
+        account: { userId: payload.sub }
       },
       include: {
         attachments: true,
@@ -77,8 +81,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -86,7 +95,7 @@ export async function DELETE(
     const email = await prisma.email.findFirst({
       where: {
         id: params.id,
-        account: { userId: session.user.id }
+        account: { userId: payload.sub }
       }
     })
 

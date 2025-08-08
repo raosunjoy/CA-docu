@@ -3,16 +3,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../lib/auth'
 import { type EmailTemplateData } from '../../../../types'
 
 const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -22,7 +26,7 @@ export async function GET(request: NextRequest) {
     const isShared = searchParams.get('isShared')
 
     const where: any = {
-      organizationId: session.user.organizationId,
+      organizationId: payload.orgId,
       isActive: isActive ? isActive === 'true' : true
     }
 
@@ -74,8 +78,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -99,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const template = await prisma.emailTemplate.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: payload.orgId,
         name: templateData.name,
         description: templateData.description,
         category: templateData.category,
@@ -108,7 +117,7 @@ export async function POST(request: NextRequest) {
         bodyText: templateData.bodyText || templateData.bodyHtml.replace(/<[^>]*>/g, ''),
         variables: templateData.variables || [],
         isShared: templateData.isShared || false,
-        createdBy: session.user.id
+        createdBy: payload.sub
       },
       include: {
         creator: {

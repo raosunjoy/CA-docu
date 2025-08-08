@@ -3,16 +3,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../../../lib/email-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../../lib/auth'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -26,7 +30,7 @@ export async function PATCH(
       )
     }
 
-    await emailService.starEmail(params.id, session.user.id, isStarred)
+    await emailService.starEmail(params.id, payload.sub, isStarred)
 
     return NextResponse.json({
       success: true,

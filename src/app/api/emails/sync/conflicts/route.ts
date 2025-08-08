@@ -3,16 +3,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../../lib/auth'
 import { emailSyncService } from '../../../../../lib/email-sync-service'
 
 const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -23,7 +27,7 @@ export async function GET(request: NextRequest) {
     // Get sync conflicts from database
     // In a real implementation, you would have a SyncConflict model
     // For now, we'll simulate conflicts
-    const conflicts = await getSimulatedConflicts(session.user.organizationId, accountId, conflictType)
+    const conflicts = await getSimulatedConflicts(payload.orgId, accountId, conflictType)
 
     return NextResponse.json({
       success: true,
@@ -52,8 +56,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -64,7 +73,7 @@ export async function POST(request: NextRequest) {
       // Bulk resolution
       const results = await Promise.allSettled(
         conflictIds.map(async (id: string) => {
-          return resolveConflict(id, bulkResolution, session.user.organizationId)
+          return resolveConflict(id, bulkResolution, payload.orgId)
         })
       )
 
@@ -86,7 +95,7 @@ export async function POST(request: NextRequest) {
       })
     } else if (conflictId && resolution) {
       // Single conflict resolution
-      await resolveConflict(conflictId, resolution, session.user.organizationId)
+      await resolveConflict(conflictId, resolution, payload.orgId)
 
       return NextResponse.json({
         success: true,
@@ -124,8 +133,13 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -140,7 +154,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Dismiss/ignore the conflict
-    await dismissConflict(conflictId, session.user.organizationId)
+    await dismissConflict(conflictId, payload.orgId)
 
     return NextResponse.json({
       success: true,

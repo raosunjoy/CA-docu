@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -1816,7 +1815,7 @@ model TaskSuggestion {
   reasoning      Json     // Why this was suggested
   
   // Status
-  status         String   @default('pending') // 'pending', 'accepted', 'rejected', 'expired'
+  status         String   @default("pending") // 'pending', 'accepted', 'rejected', 'expired'
   respondedAt    DateTime?
   expiresAt      DateTime?
   
@@ -1968,6 +1967,8 @@ model ClientEngagement {
   documentRequests ClientDocumentRequest[]
   progressUpdates ClientProgressUpdate[]
   invoices       ClientInvoice[]
+  feedbacks      ClientFeedback[]
+  meetings       ClientMeeting[]
 
   @@index([organizationId])
   @@index([clientId])

@@ -207,3 +207,71 @@ export function createSessionToken(
   
   return generateToken(tokenPayload)
 }
+
+/**
+ * Verify authentication and return user from JWT token
+ * Used by API routes that need authentication
+ */
+export async function verifyAuth(authHeader?: string): Promise<{
+  success: boolean
+  user?: JWTPayload
+  error?: string
+}> {
+  try {
+    const token = extractBearerToken(authHeader)
+    if (!token) {
+      return { success: false, error: 'No authentication token provided' }
+    }
+
+    const user = verifyToken(token)
+    return { success: true, user }
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Authentication failed' 
+    }
+  }
+}
+
+/**
+ * Authenticate request and return user data
+ * Alternative interface for API routes
+ */
+export async function authenticateRequest(request: Request): Promise<{
+  success: boolean
+  user?: JWTPayload
+  error?: string
+}> {
+  const authHeader = request.headers.get('Authorization')
+  return verifyAuth(authHeader || undefined)
+}
+
+/**
+ * Get current user from request
+ * Simplified interface for getting user data
+ */
+export async function getCurrentUser(request: Request): Promise<JWTPayload | null> {
+  const result = await authenticateRequest(request)
+  return result.success ? result.user || null : null
+}
+
+/**
+ * Auth utility object for compatibility with existing API routes
+ * Provides a unified interface for authentication operations
+ */
+export const auth = {
+  verifyAuth,
+  authenticateRequest,
+  getCurrentUser,
+  extractBearerToken,
+  verifyToken,
+  generateToken,
+  createSessionToken,
+  hashPassword,
+  verifyPassword,
+  getRolePermissions,
+  hasPermission,
+  validatePasswordStrength,
+  validateEmail,
+  generateSecureToken
+}

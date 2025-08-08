@@ -1,133 +1,57 @@
-// Get current user endpoint
+// Get current user endpoint - Enterprise version with JWT validation
 
 import { NextRequest, NextResponse } from 'next/server'
-import { authMiddleware } from '@/lib/middleware'
+import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { APIResponse } from '@/types'
 
-interface MeResponse {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  role: string
-  isActive: boolean
-  lastLoginAt: string | null
-  organization: {
-    id: string
-    name: string
-    subdomain: string
-  }
-  permissions: string[]
-}
-
-async function getUserDetails(userId: string) {
-  return prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          subdomain: true
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Missing or invalid authorization header' }
+      }, { status: 401 })
+    }
+    
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Verify JWT token
+    const payload = verifyToken(token)
+    
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: {
+        organization: {
+          select: { id: true, name: true }
         }
       }
-    }
-  })
-}
-
-interface UserDetailsData {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  role: string
-  isActive: boolean
-  lastLoginAt: Date | null
-  organization: {
-    id: string
-    name: string
-    subdomain: string
-  }
-}
-
-function createUserResponse(userDetails: UserDetailsData, permissions: string[]): MeResponse {
-  return {
-    id: userDetails.id,
-    email: userDetails.email,
-    firstName: userDetails.firstName,
-    lastName: userDetails.lastName,
-    role: userDetails.role,
-    isActive: userDetails.isActive,
-    lastLoginAt: userDetails.lastLoginAt?.toISOString() || null,
-    organization: userDetails.organization,
-    permissions
-  }
-}
-
-export async function GET(request: NextRequest): Promise<NextResponse<APIResponse<MeResponse>>> {
-  try {
-    const authResult = await authMiddleware({})(request)
+    })
     
-    if (authResult instanceof NextResponse) {
-      return authResult as NextResponse<APIResponse<MeResponse>>
-    }
-
-    const { user } = authResult
-    const userDetails = await getUserDetails(user.sub)
-
-    if (!userDetails) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: 'User not found'
-          }
-        },
-        { status: 404 }
-      )
-    }
-
-    if (!userDetails.isActive) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'FORBIDDEN',
-            message: 'Account is deactivated'
-          }
-        },
-        { status: 403 }
-      )
-    }
-
-    const responseData = createUserResponse(userDetails, user.permissions)
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: responseData,
-        meta: {
-          timestamp: new Date().toISOString(),
-          requestId: crypto.randomUUID()
-        }
-      },
-      { status: 200 }
-    )
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Get user error:', error)
-
-    return NextResponse.json(
-      {
+    if (!user || !user.isActive) {
+      return NextResponse.json({
         success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An error occurred while fetching user data'
-        }
-      },
-      { status: 500 }
-    )
+        error: { code: 'UNAUTHORIZED', message: 'User not found or inactive' }
+      }, { status: 401 })
+    }
+    
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        organizationId: user.organizationId
+      }
+    })
+    
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Invalid token' }
+    }, { status: 401 })
   }
 }

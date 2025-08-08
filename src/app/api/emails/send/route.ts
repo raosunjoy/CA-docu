@@ -3,16 +3,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../lib/auth'
 import { type EmailCompositionData } from '../../../../types'
 
 const prisma = new PrismaClient()
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -30,7 +34,7 @@ export async function POST(request: NextRequest) {
     const account = await prisma.emailAccount.findFirst({
       where: {
         id: emailData.accountId,
-        userId: session.user.id,
+        userId: payload.sub,
         status: 'ACTIVE'
       }
     })
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Store as draft with scheduled flag
-      const scheduledEmail = await createDraftEmail(emailData, account, session.user.id, true)
+      const scheduledEmail = await createDraftEmail(emailData, account, payload.sub, true)
       
       return NextResponse.json({
         success: true,
@@ -70,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send email immediately
-    const sentEmail = await sendEmail(emailData, account, session.user.id)
+    const sentEmail = await sendEmail(emailData, account, payload.sub)
 
     return NextResponse.json({
       success: true,
@@ -261,8 +265,13 @@ async function createDraftEmail(
 // Draft saving endpoint
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -303,7 +312,7 @@ export async function PUT(request: NextRequest) {
       })
     } else {
       // Create new draft
-      draft = await createDraftEmail(emailData, account, session.user.id)
+      draft = await createDraftEmail(emailData, account, payload.sub)
     }
 
     return NextResponse.json({

@@ -21,9 +21,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<APIRespon
       data: {
         organizationId: user.orgId,
         userId: user.sub,
-        action: 'logout',
+        action: 'LOGOUT',
+        category: 'AUTHENTICATION',
+        description: `User logged out`,
         resourceType: 'user',
         resourceId: user.sub,
+        occurredAt: new Date(),
         newValues: {
           deviceId: user.deviceId,
           ip: request.headers.get('x-forwarded-for') || 'unknown'

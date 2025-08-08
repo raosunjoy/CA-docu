@@ -3,18 +3,22 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../../lib/email-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../lib/auth'
 import { type EmailAccountData } from '../../../../types'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const accounts = await emailService.getEmailAccounts(session.user.id)
+    const payload = await verifyToken(token)
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const accounts = await emailService.getEmailAccounts(payload.sub)
 
     return NextResponse.json({
       success: true,
@@ -42,8 +46,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -76,8 +85,8 @@ export async function POST(request: NextRequest) {
     }
 
     const account = await emailService.createEmailAccount(
-      session.user.organizationId,
-      session.user.id,
+      payload.orgId,
+      payload.sub,
       accountData
     )
 

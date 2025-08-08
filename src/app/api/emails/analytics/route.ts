@@ -3,21 +3,25 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '../../../../../generated/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { verifyToken } from '../../../../lib/auth'
 import { type EmailAnalytics } from '../../../../types'
 
 const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || !session?.user?.organizationId) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const payload = await verifyToken(token)
+    if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || session.user.id
+    const userId = searchParams.get('userId') || payload.sub
     const accountId = searchParams.get('accountId')
     const startDate = searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const endDate = searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : new Date()
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
     const emailWhere: any = {
       account: { 
         userId,
-        organizationId: session.user.organizationId
+        organizationId: payload.orgId
       },
       receivedAt: {
         gte: startDate,

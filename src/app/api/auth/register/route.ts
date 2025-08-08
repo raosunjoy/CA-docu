@@ -104,9 +104,12 @@ async function logRegistration(user: CreatedUser, deviceId: string | undefined, 
     data: {
       organizationId: user.organizationId,
       userId: user.id,
-      action: 'register',
+      action: 'REGISTER',
+      category: 'AUTHENTICATION',
+      description: `User ${user.firstName} ${user.lastName} registered`,
       resourceType: 'user',
       resourceId: user.id,
+      occurredAt: new Date(),
       newValues: {
         email: user.email,
         firstName: user.firstName,
@@ -159,8 +162,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<APIRespon
 
     const validation = await validateRegistrationData(email, password, organizationId)
     if (validation.error) {
-      const status = validation.error.code === 'NOT_FOUND' ? 404 : 
-                    validation.error.code === 'CONFLICT' ? 409 : 400
+      let status = 400
+      if (validation.error.code === 'NOT_FOUND') {
+        status = 404
+      } else if (validation.error.code === 'CONFLICT') {
+        status = 409
+      }
       return NextResponse.json({ success: false, error: validation.error }, { status })
     }
 
