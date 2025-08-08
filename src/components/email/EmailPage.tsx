@@ -50,30 +50,40 @@ export const EmailPage: React.FC<EmailPageProps> = ({
 
       {/* Right Panel - Email Viewer or Composer */}
       <div className="flex-1 bg-gray-50">
-        {showComposer ? (
-          <EmailComposer
-            onClose={() => setShowComposer(false)}
-            onSent={() => {
-              setShowComposer(false)
-              // Refresh inbox
-            }}
-          />
-        ) : selectedEmailId ? (
-          <EmailViewer
-            emailId={selectedEmailId}
-            onClose={() => setSelectedEmailId(null)}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <p className="text-lg font-medium text-gray-900 mb-2">No email selected</p>
-              <p className="text-gray-600">Choose an email from the list to view its contents</p>
+        {(() => {
+          if (showComposer) {
+            return (
+              <EmailComposer
+                onClose={() => setShowComposer(false)}
+                onSent={() => {
+                  setShowComposer(false)
+                  // Refresh inbox
+                }}
+              />
+            )
+          }
+          
+          if (selectedEmailId) {
+            return (
+              <EmailViewer
+                emailId={selectedEmailId}
+                onClose={() => setSelectedEmailId(null)}
+              />
+            )
+          }
+          
+          return (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <p className="text-lg font-medium text-gray-900 mb-2">No email selected</p>
+                <p className="text-gray-600">Choose an email from the list to view its contents</p>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
     </div>
   )

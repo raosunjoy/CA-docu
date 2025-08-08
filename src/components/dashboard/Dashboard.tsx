@@ -6,7 +6,7 @@ import { PartnerDashboard } from './widgets/PartnerDashboard'
 import { ManagerDashboard } from './widgets/ManagerDashboard'
 import { AssociateDashboard } from './widgets/AssociateDashboard'
 import { InternDashboard } from './widgets/InternDashboard'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/atoms/Card'
+import { Card, CardContent } from '@/components/atoms/Card'
 import { Button } from '@/components/atoms/Button'
 import { Badge } from '@/components/atoms/Badge'
 
@@ -68,7 +68,7 @@ export const Dashboard: React.FC = () => {
             Welcome back, {user.firstName}!
           </h2>
           <p className="text-gray-600">
-            Here's what's happening with your work today.
+            Here&apos;s what&apos;s happening with your work today.
           </p>
         </div>
 

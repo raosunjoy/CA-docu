@@ -10,6 +10,13 @@ import { TasksPage } from '@/components/tasks/TasksPage'
 import { DocumentsPage } from '@/components/documents/DocumentsPage'
 import { EmailPage } from '@/components/email/EmailPage'
 import { ChatPage } from '@/components/chat/ChatPage'
+import ErrorBoundary from '@/components/common/ErrorBoundary'
+import { useAnalytics } from '@/lib/analytics'
+import { useEffect, useState } from 'react'
+import UserManagement from '@/components/admin/UserManagement'
+import SystemSettings from '@/components/admin/SystemSettings'
+import { ComplianceDashboard } from '@/components/compliance/ComplianceDashboard'
+import { BackupRecoveryDashboard } from '@/components/backup/BackupRecoveryDashboard'
 
 const TimeTrackingPage = () => {
   const { user } = useAuth()
@@ -302,6 +309,7 @@ const ReportsPage = () => (
 
 const AdminPage = () => {
   const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState('overview')
   
   // Only allow admin and partner access
   if (!user || (user.role !== 'ADMIN' && user.role !== 'PARTNER')) {
@@ -314,112 +322,169 @@ const AdminPage = () => {
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-          <p className="text-gray-600">You don't have permission to access the admin panel.</p>
+          <p className="text-gray-600">You don&apos;t have permission to access the admin panel.</p>
         </div>
       </div>
     )
   }
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'users':
+        return <UserManagement />
+      case 'settings':
+        return <SystemSettings />
+      case 'compliance':
+        return <ComplianceDashboard organizationId={user.organizationId} />
+      case 'backup':
+        return <BackupRecoveryDashboard organizationId={user.organizationId} />
+      default:
+        return (
+          <div className="space-y-6">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Users</p>
+                    <p className="text-2xl font-semibold text-gray-900">248</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">System Health</p>
+                    <p className="text-2xl font-semibold text-green-600">Good</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Pending Issues</p>
+                    <p className="text-2xl font-semibold text-yellow-600">3</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Uptime</p>
+                    <p className="text-2xl font-semibold text-purple-600">99.9%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">User Management</h3>
+                <p className="text-gray-600 mb-4">Manage users, roles, and permissions</p>
+                <button 
+                  onClick={() => setActiveTab('users')}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Manage Users
+                </button>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">System Settings</h3>
+                <p className="text-gray-600 mb-4">Configure system preferences and features</p>
+                <button 
+                  onClick={() => setActiveTab('settings')}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  System Settings
+                </button>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Compliance Dashboard</h3>
+                <p className="text-gray-600 mb-4">Monitor compliance status and audit trails</p>
+                <button 
+                  onClick={() => setActiveTab('compliance')}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  View Compliance
+                </button>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Backup & Recovery</h3>
+                <p className="text-gray-600 mb-4">Manage backups and disaster recovery</p>
+                <button 
+                  onClick={() => setActiveTab('backup')}
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  Backup Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+    }
+  }
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
         <p className="text-gray-600">System administration and monitoring</p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-semibold text-gray-900">248</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">System Health</p>
-              <p className="text-2xl font-semibold text-green-600">Good</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending Issues</p>
-              <p className="text-2xl font-semibold text-yellow-600">3</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Uptime</p>
-              <p className="text-2xl font-semibold text-purple-600">99.9%</p>
-            </div>
-          </div>
-        </div>
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          {[
+            { id: 'overview', label: 'Overview' },
+            { id: 'users', label: 'User Management' },
+            { id: 'settings', label: 'System Settings' },
+            { id: 'compliance', label: 'Compliance' },
+            { id: 'backup', label: 'Backup & Recovery' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Admin Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">User Management</h3>
-          <p className="text-gray-600 mb-4">Manage users, roles, and permissions</p>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Manage Users
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">System Settings</h3>
-          <p className="text-gray-600 mb-4">Configure system preferences and features</p>
-          <button className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-            System Settings
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Compliance Dashboard</h3>
-          <p className="text-gray-600 mb-4">Monitor compliance status and audit trails</p>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-            View Compliance
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Backup & Recovery</h3>
-          <p className="text-gray-600 mb-4">Manage backups and disaster recovery</p>
-          <button className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
-            Backup Settings
-          </button>
-        </div>
-      </div>
+      {/* Tab Content */}
+      {renderTabContent()}
     </div>
   )
 }
@@ -441,6 +506,14 @@ const PreferencesPage = () => (
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth()
   const { currentPath, navigate } = useRouter()
+  const { trackPageView } = useAnalytics()
+
+  // Track page views
+  useEffect(() => {
+    if (isAuthenticated && currentPath) {
+      trackPageView(currentPath)
+    }
+  }, [currentPath, isAuthenticated, trackPageView])
 
   if (isLoading) {
     return (
@@ -489,16 +562,20 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <AppLayout currentPath={currentPath} onNavigate={navigate}>
-      {renderPage()}
-    </AppLayout>
+    <ErrorBoundary>
+      <AppLayout currentPath={currentPath} onNavigate={navigate}>
+        {renderPage()}
+      </AppLayout>
+    </ErrorBoundary>
   )
 }
 
 export const App: React.FC = () => {
   return (
-    <RouterProvider>
-      <AppContent />
-    </RouterProvider>
+    <ErrorBoundary>
+      <RouterProvider>
+        <AppContent />
+      </RouterProvider>
+    </ErrorBoundary>
   )
 }
