@@ -45,6 +45,46 @@ export {
   EmailSyncStatus
 } from '../../generated/prisma'
 
+// Email-specific types
+export interface EmailMessage {
+  id: string
+  threadId: string
+  from: string
+  to?: string
+  cc?: string
+  bcc?: string
+  subject: string
+  date: Date
+  bodyText?: string
+  bodyHtml?: string
+  snippet?: string
+  labels: string[]
+  isRead: boolean
+  isStarred: boolean
+  hasAttachments: boolean
+  attachments?: EmailAttachment[]
+  internalDate: Date
+}
+
+export interface EmailAttachment {
+  filename: string
+  mimeType: string
+  attachmentId: string
+  size?: number
+}
+
+export interface EmailSyncResult {
+  accountId: string
+  success: boolean
+  emailsProcessed: number
+  emailsAdded: number
+  emailsUpdated: number
+  emailsDeleted: number
+  errorsCount: number
+  startedAt: Date
+  completedAt?: Date
+}
+
 // Additional types for API responses
 export interface APIResponse<T = unknown> {
   success: boolean
@@ -167,7 +207,7 @@ export interface ApprovalStep {
 export interface ApprovalCondition {
   field: string
   operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'in'
-  value: any
+  value: unknown
 }
 
 export interface ApprovalWorkflowData {
@@ -250,9 +290,9 @@ export interface TimeReportData {
   reportType: 'timesheet' | 'productivity' | 'billing' | 'project'
   startDate: Date
   endDate: Date
-  filters: Record<string, any>
+  filters: Record<string, unknown>
   isScheduled?: boolean
-  scheduleConfig?: Record<string, any>
+  scheduleConfig?: Record<string, unknown>
 }
 
 export interface ProductivityMetricData {
@@ -531,7 +571,7 @@ export interface AnalyticsData {
     date: string
     value: number
     label?: string
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   }>
   trend: 'up' | 'down' | 'stable'
   trendPercentage: number
@@ -567,7 +607,7 @@ export interface ActivityFeedItem {
   resourceId?: string
   resourceType?: string
   timestamp: Date
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface DashboardAlert {
@@ -619,7 +659,7 @@ export interface ReportTemplate {
   description?: string
   category: string
   reportType: 'dashboard' | 'analytics' | 'compliance' | 'financial'
-  config: Record<string, any>
+  config: Record<string, unknown>
   schedule?: ReportSchedule
   recipients?: string[]
   isActive: boolean
@@ -645,7 +685,7 @@ export interface GeneratedReport {
   fileSize: number
   generatedAt: Date
   generatedBy: string
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   status: 'generating' | 'completed' | 'failed'
   error?: string
 }
@@ -677,7 +717,7 @@ export interface RecurringTaskData {
   maxOccurrences?: number
   estimatedHours?: number
   requiresApproval?: boolean
-  templateData?: Record<string, any>
+  templateData?: Record<string, unknown>
 }
 
 export interface RecurringTaskUpdateData {
@@ -696,7 +736,7 @@ export interface RecurringTaskUpdateData {
   maxOccurrences?: number
   estimatedHours?: number
   requiresApproval?: boolean
-  templateData?: Record<string, any>
+  templateData?: Record<string, unknown>
   isActive?: boolean
   isPaused?: boolean
 }
@@ -705,7 +745,7 @@ export interface AutomationRuleData {
   name: string
   description?: string
   triggerType: TriggerType
-  triggerConfig: Record<string, any>
+  triggerConfig: Record<string, unknown>
   conditions: AutomationCondition[]
   actions: AutomationAction[]
   priority?: number
@@ -716,20 +756,20 @@ export interface AutomationRuleData {
 export interface AutomationCondition {
   field: string
   operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'in' | 'exists'
-  value: any
+  value: unknown
   logicalOperator?: 'AND' | 'OR'
 }
 
 export interface AutomationAction {
   type: ActionType
-  config: Record<string, any>
+  config: Record<string, unknown>
   order: number
 }
 
 export interface AutomationTriggerData {
   ruleId: string
   taskId?: string
-  triggerData: Record<string, any>
+  triggerData: Record<string, unknown>
   scheduledFor?: Date
 }
 
@@ -758,7 +798,7 @@ export interface EscalationRuleData {
 export interface EscalationCondition {
   field: string
   operator: string
-  value: any
+  value: unknown
   unit?: string // 'hours', 'days', etc.
 }
 
@@ -771,7 +811,7 @@ export interface EscalationLevel {
 
 export interface EscalationAction {
   type: 'notify' | 'reassign' | 'escalate_priority' | 'add_comment' | 'delegate'
-  config: Record<string, any>
+  config: Record<string, unknown>
 }
 
 export interface TaskSuggestionData {
@@ -780,8 +820,8 @@ export interface TaskSuggestionData {
   title: string
   description?: string
   confidence: number
-  suggestedData: Record<string, any>
-  reasoning: Record<string, any>
+  suggestedData: Record<string, unknown>
+  reasoning: Record<string, unknown>
   expiresAt?: Date
 }
 
@@ -801,7 +841,7 @@ export interface SmartTaskSuggestion {
   title: string
   description?: string
   confidence: number
-  suggestedData: Record<string, any>
+  suggestedData: Record<string, unknown>
   reasoning: string[]
   expiresAt?: Date
   status: 'pending' | 'accepted' | 'rejected' | 'expired'
@@ -907,7 +947,7 @@ export interface EmailTemplateVariable {
   label: string
   type: 'text' | 'number' | 'date' | 'boolean' | 'select'
   required?: boolean
-  defaultValue?: any
+  defaultValue?: unknown
   options?: string[] // For select type
 }
 

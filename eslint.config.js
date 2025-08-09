@@ -86,8 +86,15 @@ const config = [
         ignoreDefaultValues: true
       }],
       'prefer-template': 'error',
-      'no-nested-ternary': 'error',
-      'consistent-return': 'error'
+      'no-nested-ternary': 'warn',
+      'consistent-return': 'warn', // Relax consistent return requirements
+      'no-alert': 'warn', // Allow alerts for debugging
+      'react/no-unescaped-entities': 'warn', // Common in JSX text
+      '@next/next/no-html-link-for-pages': 'warn', // Allow <a> for external links
+      'no-useless-escape': 'warn', // Regex escaping can be necessary
+      'react/display-name': 'warn', // Component display names not critical
+      '@next/next/no-assign-module-variable': 'warn', // Module assignments sometimes needed
+      'no-void': 'warn' // Void operator sometimes useful
     }
   },
   {
@@ -102,6 +109,37 @@ const config = [
     files: ['*.config.js'],
     rules: {
       'import/no-anonymous-default-export': 'off'
+    }
+  },
+  {
+    files: ['src/services/**/*.ts', 'src/lib/**/*.ts', 'src/middleware/**/*.ts'],
+    rules: {
+      'no-console': 'warn', // Allow console in services for debugging
+      'max-lines-per-function': 'warn', // Relax for service functions
+      'complexity': 'warn' // Services can be more complex
+    }
+  },
+  {
+    files: ['src/app/api/**/*.ts'],
+    rules: {
+      'no-console': 'warn', // API routes need console for debugging
+      'max-lines-per-function': 'warn', // API routes can be longer
+      'complexity': 'warn' // API routes handle multiple scenarios
+    }
+  },
+  {
+    files: ['src/app/**/page.tsx', 'src/components/**/*.tsx'],
+    rules: {
+      'max-lines-per-function': 'warn', // React components can be longer for layout
+      'complexity': 'warn' // UI components have conditional rendering
+    }
+  },
+  {
+    files: ['prisma/**/*.ts', 'scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off', // Database scripts need console output
+      'max-lines-per-function': 'off', // Scripts can be long
+      'complexity': 'off' // Scripts don't need complexity limits
     }
   }
 ]

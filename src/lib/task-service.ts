@@ -1,8 +1,8 @@
 // Task service utilities for API routes
 
-import prisma from '@/lib/prisma'
-import { TaskFilters, TaskSortOptions, buildTaskWhereClause } from '@/lib/task-utils'
-import { TaskCreationData } from '@/types'
+import { prisma } from './prisma'
+import { TaskFilters, TaskSortOptions, buildTaskWhereClause } from './task-utils'
+import type { TaskCreationData } from '../types'
 
 export interface TaskData {
   id: string
@@ -129,4 +129,12 @@ export async function createTaskWithIncludes(taskData: TaskCreationData) {
       }
     }
   })
+}
+
+// Export task service instance for backward compatibility
+export const taskService = {
+  createTask: createTaskWithIncludes,
+  getTasks: getTasksPaginated,
+  validateAssignee: validateTaskAssignee,
+  validateParentTask: validateParentTask
 }

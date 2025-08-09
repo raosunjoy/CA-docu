@@ -1,8 +1,7 @@
 // Notification Service
 // Handles push notifications, in-app notifications, and notification preferences
 
-import { getWebSocketServer } from './websocket-server'
-import type { NotificationData } from './websocket-server'
+import { getWebSocketServer, type NotificationData } from './websocket-server'
 
 export interface NotificationPreferences {
   mentions: boolean

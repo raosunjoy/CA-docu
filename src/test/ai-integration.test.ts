@@ -24,7 +24,7 @@ describe('AI Integration Tests', () => {
         // If OpenAI API is not configured, should gracefully handle
         expect(error).toBeDefined()
       }
-    }, 10000)
+    }, 10000) // 10 second timeout for AI operations
 
     test('should handle document analysis requests', async () => {
       const request = {
@@ -240,6 +240,6 @@ describe('AI Integration Tests', () => {
       expect(finalResult.results).toBeDefined()
       expect(finalResult.confidence).toBeGreaterThan(0)
       expect(finalResult.processingTime).toBeGreaterThanOrEqual(0)
-    }, 15000)
+    }, 15000) // 15 second timeout for complex AI operations
   })
 })

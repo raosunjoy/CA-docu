@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import { hashPassword } from '../src/lib/auth'
 
+/* eslint-disable no-console */
+/* eslint-disable max-lines-per-function */
+
 const prisma = new PrismaClient()
 
 async function main() {

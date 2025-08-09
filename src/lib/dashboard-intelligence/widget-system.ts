@@ -748,7 +748,7 @@ export class IntelligentDashboardWidgetSystem {
       if (opts.performance) {
         layout.widgets.forEach(widget => {
           const perfOpt = opts.performance[widget.id]
-          if (perfOpt && perfOpt.refreshInterval) {
+          if (perfOpt?.refreshInterval) {
             widget.refreshInterval = perfOpt.refreshInterval
           }
         })

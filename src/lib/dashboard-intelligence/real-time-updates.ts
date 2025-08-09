@@ -380,7 +380,7 @@ export class RealtimeDashboardUpdates extends EventEmitter {
    */
   async processPipeline(pipelineId: string): Promise<any> {
     const pipeline = this.pipelines.get(pipelineId)
-    if (!pipeline || !pipeline.isActive) {
+    if (!pipeline?.isActive) {
       throw new Error(`Pipeline ${pipelineId} not found or inactive`)
     }
 

@@ -2,7 +2,8 @@ import { faker } from '@faker-js/faker'
 import { User, Task, Document, Organization, Tag, Tagging, UserRole, TaskStatus, TaskPriority, DocumentStatus } from '@/types'
 
 // Seed faker for consistent test data
-faker.seed(123)
+const FAKER_SEED = 123
+faker.seed(FAKER_SEED)
 
 export class TestDataGenerator {
   static generateUser(overrides: Partial<User> = {}): User {
@@ -75,7 +76,7 @@ export class TestDataGenerator {
         'image/jpeg',
         'image/png'
       ]),
-      checksum: faker.string.alphanumeric(32),
+      checksum: faker.string.alphanumeric(32), // SHA-256 hex length
       type: faker.helpers.arrayElement(['PDF', 'WORD', 'EXCEL', 'IMAGE', 'OTHER']),
       status: faker.helpers.arrayElement(['DRAFT', 'ACTIVE', 'ARCHIVED', 'DELETED'] as DocumentStatus[]),
       version: 1,

@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../../../../lib/email-service'
+import { emailSyncService } from '../../../../../../lib/email-sync-service'
 import { verifyToken } from '../../../../../../lib/auth'
 
 export async function POST(
@@ -20,8 +21,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+    
     // Verify account belongs to user
-    const account = await emailService.getEmailAccount(params.id, payload.sub)
+    const account = await emailService.getEmailAccount(id, payload.sub)
     if (!account) {
       return NextResponse.json(
         { error: 'Email account not found' },
@@ -29,8 +32,22 @@ export async function POST(
       )
     }
 
-    // Start sync process
-    const syncResult = await emailService.syncEmails(params.id)
+    // Parse sync options from request body
+    const body = await request.json().catch(() => ({}))
+    const {
+      fullSync = false,
+      maxEmails = 100,
+      useNylas = false,
+      folderId
+    } = body
+
+    // Start sync process using the new EmailSyncService
+    const syncResult = await emailSyncService.syncAccount(id, {
+      fullSync,
+      maxEmails,
+      useNylas, // Allow client to specify Nylas usage
+      folderId
+    })
 
     return NextResponse.json({
       success: true,
@@ -71,8 +88,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+    
     // Verify account belongs to user
-    const account = await emailService.getEmailAccount(params.id, payload.sub)
+    const account = await emailService.getEmailAccount(id, payload.sub)
     if (!account) {
       return NextResponse.json(
         { error: 'Email account not found' },
@@ -83,7 +102,7 @@ export async function GET(
     // Get sync status and recent sync logs
     // This would typically fetch from EmailSyncLog model
     const syncStatus = {
-      accountId: params.id,
+      accountId: id,
       status: account.syncStatus,
       lastSyncAt: account.lastSyncAt,
       syncError: account.syncError,

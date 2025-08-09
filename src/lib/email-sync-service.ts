@@ -1,16 +1,16 @@
 // Zetra Platform - Email Synchronization Service
 // Handles bi-directional email sync with conflict resolution
 
-import { PrismaClient } from '../../generated/prisma'
+import { prisma } from './prisma'
+import { gmailService } from './gmail-service'
+import { nylasService } from './nylas-service'
+import { encrypt, decrypt } from './crypto'
 import { 
   EmailProvider, 
   EmailAccountStatus, 
-  EmailSyncStatus,
-  type EmailSyncResult 
-} from '../types'
-import { decrypt } from './crypto'
-
-const prisma = new PrismaClient()
+  EmailSyncStatus
+} from '../../generated/prisma'
+import type { EmailSyncResult } from '../types'
 
 interface SyncConflict {
   type: 'update' | 'delete' | 'move'
@@ -24,6 +24,7 @@ interface SyncOptions {
   folderId?: string
   maxEmails?: number
   conflictResolution?: 'local' | 'remote' | 'merge' | 'prompt'
+  useNylas?: boolean // Option to use Nylas vs direct provider
 }
 
 export class EmailSyncService {
@@ -145,6 +146,17 @@ export class EmailSyncService {
     }
 
     try {
+      // Use Nylas for unified provider support if requested or if account has Nylas integration
+      const useNylas = options.useNylas || 
+                      account.externalId || 
+                      account.metadata?.nylasAccountId ||
+                      process.env.PREFER_NYLAS === 'true'
+
+      if (useNylas && [EmailProvider.GMAIL, EmailProvider.OUTLOOK, EmailProvider.EXCHANGE, EmailProvider.IMAP].includes(account.provider)) {
+        return await this.syncWithNylas(account, options, result)
+      }
+
+      // Fallback to direct provider integration
       switch (account.provider) {
         case EmailProvider.GMAIL:
           return await this.syncGmail(account, options, result)
@@ -166,54 +178,65 @@ export class EmailSyncService {
     }
   }
 
+  private async syncWithNylas(account: any, options: SyncOptions, result: EmailSyncResult): Promise<EmailSyncResult> {
+    try {
+      // Use NylasService for unified multi-provider sync
+      const nylasSyncResult = await nylasService.syncEmails(account, {
+        maxEmails: options.maxEmails,
+        fullSync: options.fullSync,
+        folderId: options.folderId
+      })
+
+      // Merge results
+      result.emailsProcessed = nylasSyncResult.emailsProcessed
+      result.emailsAdded = nylasSyncResult.emailsAdded
+      result.emailsUpdated = nylasSyncResult.emailsUpdated
+      result.emailsDeleted = nylasSyncResult.emailsDeleted
+      result.errorsCount = nylasSyncResult.errorsCount
+      result.success = nylasSyncResult.success
+
+      return result
+    } catch (error) {
+      console.error('Nylas sync failed:', error)
+      result.success = false
+      result.errorsCount = 1
+      throw error
+    }
+  }
+
   private async syncGmail(account: any, options: SyncOptions, result: EmailSyncResult): Promise<EmailSyncResult> {
-    // Gmail API sync implementation
-    const accessToken = decrypt(account.accessToken)
-    
-    // Check if token is expired and refresh if needed
-    if (account.tokenExpiresAt && new Date(account.tokenExpiresAt) <= new Date()) {
-      await this.refreshGmailToken(account)
-    }
+    try {
+      // Use the new GmailService to sync emails
+      const gmailSyncResult = await gmailService.syncEmails(account, {
+        maxEmails: options.maxEmails,
+        fullSync: options.fullSync
+      })
 
-    // Get Gmail messages
-    const messages = await this.fetchGmailMessages(accessToken, options)
-    result.emailsProcessed = messages.length
+      // Merge results
+      result.emailsProcessed = gmailSyncResult.emailsProcessed
+      result.emailsAdded = gmailSyncResult.emailsAdded
+      result.emailsUpdated = gmailSyncResult.emailsUpdated
+      result.emailsDeleted = gmailSyncResult.emailsDeleted
+      result.errorsCount = gmailSyncResult.errorsCount
+      result.success = gmailSyncResult.success
 
-    // Process each message
-    for (const message of messages) {
-      try {
-        const existingEmail = await prisma.email.findFirst({
-          where: {
-            accountId: account.id,
-            externalId: message.id
-          }
-        })
-
-        if (existingEmail) {
-          // Check for updates
-          const hasChanges = await this.detectGmailChanges(existingEmail, message)
-          if (hasChanges) {
-            await this.updateEmailFromGmail(existingEmail, message)
-            result.emailsUpdated++
-          }
-        } else {
-          // Create new email
-          await this.createEmailFromGmail(account, message)
-          result.emailsAdded++
+      // Also sync labels/folders
+      if (result.success) {
+        try {
+          await gmailService.syncLabels(account)
+        } catch (error) {
+          console.error('Failed to sync Gmail labels:', error)
+          // Don't fail the entire sync for label sync issues
         }
-      } catch (error) {
-        console.error(`Failed to process Gmail message ${message.id}:`, error)
-        result.errorsCount++
       }
-    }
 
-    // Handle deletions (emails that exist locally but not remotely)
-    if (options.fullSync) {
-      const deletedCount = await this.handleGmailDeletions(account, messages)
-      result.emailsDeleted = deletedCount
+      return result
+    } catch (error) {
+      console.error('Gmail sync failed:', error)
+      result.success = false
+      result.errorsCount = 1
+      throw error
     }
-
-    return result
   }
 
   private async syncOutlook(account: any, options: SyncOptions, result: EmailSyncResult): Promise<EmailSyncResult> {
@@ -373,13 +396,7 @@ export class EmailSyncService {
     })
   }
 
-  // Provider-specific helper methods (simplified implementations)
-  private async fetchGmailMessages(accessToken: string, options: SyncOptions): Promise<any[]> {
-    // Gmail API call to fetch messages
-    // This would use the Gmail API to get messages
-    return []
-  }
-
+  // Provider-specific helper methods will be implemented by individual provider services
   private async fetchOutlookMessages(accessToken: string, options: SyncOptions): Promise<any[]> {
     // Microsoft Graph API call to fetch messages
     // This would use the Graph API to get messages
@@ -399,19 +416,9 @@ export class EmailSyncService {
     return []
   }
 
-  private async refreshGmailToken(account: any): Promise<void> {
-    // Gmail token refresh implementation
-    console.log('Refreshing Gmail token for account:', account.id)
-  }
-
   private async refreshOutlookToken(account: any): Promise<void> {
     // Outlook token refresh implementation
     console.log('Refreshing Outlook token for account:', account.id)
-  }
-
-  private async detectGmailChanges(localEmail: any, remoteMessage: any): Promise<boolean> {
-    // Compare local and remote email to detect changes
-    return false
   }
 
   private async detectOutlookChanges(localEmail: any, remoteMessage: any): Promise<boolean> {
@@ -424,11 +431,6 @@ export class EmailSyncService {
     return false
   }
 
-  private async updateEmailFromGmail(localEmail: any, remoteMessage: any): Promise<void> {
-    // Update local email with Gmail data
-    console.log('Updating email from Gmail:', localEmail.id)
-  }
-
   private async updateEmailFromOutlook(localEmail: any, remoteMessage: any): Promise<void> {
     // Update local email with Outlook data
     console.log('Updating email from Outlook:', localEmail.id)
@@ -437,11 +439,6 @@ export class EmailSyncService {
   private async updateEmailFromImap(localEmail: any, remoteMessage: any): Promise<void> {
     // Update local email with IMAP data
     console.log('Updating email from IMAP:', localEmail.id)
-  }
-
-  private async createEmailFromGmail(account: any, remoteMessage: any): Promise<void> {
-    // Create new email from Gmail data
-    console.log('Creating email from Gmail for account:', account.id)
   }
 
   private async createEmailFromOutlook(account: any, remoteMessage: any): Promise<void> {
@@ -454,38 +451,108 @@ export class EmailSyncService {
     console.log('Creating email from IMAP for account:', account.id)
   }
 
-  private async handleGmailDeletions(account: any, remoteMessages: any[]): Promise<number> {
-    // Handle emails that were deleted remotely
-    const remoteIds = remoteMessages.map(msg => msg.id)
-    
-    const localEmails = await prisma.email.findMany({
-      where: {
-        accountId: account.id,
-        externalId: { notIn: remoteIds },
-        isDeleted: false
-      }
-    })
-
-    // Mark as deleted
-    await prisma.email.updateMany({
-      where: {
-        id: { in: localEmails.map(email => email.id) }
-      },
-      data: { isDeleted: true }
-    })
-
-    return localEmails.length
-  }
-
   // Real-time sync methods
   async startRealTimeSync(accountId: string): Promise<void> {
-    // Start real-time sync using webhooks or push notifications
-    console.log('Starting real-time sync for account:', accountId)
+    const account = await prisma.emailAccount.findUnique({
+      where: { id: accountId }
+    })
+
+    if (!account) {
+      throw new Error('Account not found')
+    }
+
+    try {
+      // Use Nylas webhooks for unified multi-provider support
+      const useNylas = account.externalId || 
+                      account.metadata?.nylasAccountId ||
+                      process.env.PREFER_NYLAS === 'true'
+
+      if (useNylas) {
+        const webhookUrl = `${process.env.ZETRA_BASE_URL}/api/emails/webhook/nylas`
+        await nylasService.setupWebhooks(account, webhookUrl)
+      } else {
+        // Fallback to provider-specific webhooks
+        if (account.provider === EmailProvider.GMAIL) {
+          const webhookUrl = `${process.env.ZETRA_BASE_URL}/api/emails/webhook/gmail`
+          await gmailService.setupPushNotifications(account, webhookUrl)
+        }
+        // Add other providers as needed
+      }
+      
+      console.log('Real-time sync started for account:', accountId)
+    } catch (error) {
+      console.error('Failed to start real-time sync:', error)
+      throw error
+    }
   }
 
   async stopRealTimeSync(accountId: string): Promise<void> {
-    // Stop real-time sync
-    console.log('Stopping real-time sync for account:', accountId)
+    const account = await prisma.emailAccount.findUnique({
+      where: { id: accountId }
+    })
+
+    if (!account) {
+      throw new Error('Account not found')
+    }
+
+    try {
+      // Check if using Nylas or direct provider
+      const useNylas = account.externalId || 
+                      account.metadata?.nylasAccountId ||
+                      process.env.PREFER_NYLAS === 'true'
+
+      if (useNylas) {
+        // Nylas webhooks are managed centrally, just mark as stopped
+        console.log('Nylas webhook stopping not implemented - webhooks are managed globally')
+      } else {
+        // Stop provider-specific webhooks
+        if (account.provider === EmailProvider.GMAIL) {
+          await gmailService.stopPushNotifications(account)
+        }
+        // Add other providers as needed
+      }
+      
+      console.log('Real-time sync stopped for account:', accountId)
+    } catch (error) {
+      console.error('Failed to stop real-time sync:', error)
+      throw error
+    }
+  }
+
+  // Webhook processing
+  async processWebhookNotification(provider: EmailProvider | 'nylas', webhookData: any): Promise<{
+    success: boolean
+    accountId?: string
+    processed?: boolean
+    messagesProcessed?: number
+  }> {
+    try {
+      if (provider === 'nylas') {
+        const result = await nylasService.processWebhookNotification(webhookData)
+        return {
+          success: true,
+          accountId: result.accountId,
+          processed: result.processed,
+          messagesProcessed: result.messagesProcessed
+        }
+      }
+
+      switch (provider) {
+        case EmailProvider.GMAIL:
+          const result = await gmailService.processWebhookNotification(webhookData)
+          return {
+            success: true,
+            accountId: result.accountId,
+            processed: result.processed
+          }
+        default:
+          console.warn(`Webhook processing not implemented for provider: ${provider}`)
+          return { success: false }
+      }
+    } catch (error) {
+      console.error('Failed to process webhook notification:', error)
+      return { success: false }
+    }
   }
 
   // Offline queue management

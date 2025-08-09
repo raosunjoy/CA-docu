@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { emailService } from '../../../../lib/email-service'
+import { nylasService } from '../../../../lib/nylas-service'
+import { emailSyncService } from '../../../../lib/email-sync-service'
 import { verifyToken } from '../../../../lib/auth'
 import { type EmailAccountData } from '../../../../types'
 
@@ -57,7 +59,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const accountData: EmailAccountData = body
+    const { 
+      useNylas = false, 
+      ...accountData 
+    }: EmailAccountData & { useNylas?: boolean } = body
 
     // Validate required fields
     if (!accountData.provider || !accountData.email) {
@@ -69,9 +74,9 @@ export async function POST(request: NextRequest) {
 
     // Validate OAuth2 vs IMAP credentials
     if (accountData.provider === 'GMAIL' || accountData.provider === 'OUTLOOK') {
-      if (!accountData.accessToken) {
+      if (!accountData.accessToken && !useNylas) {
         return NextResponse.json(
-          { error: 'Access token is required for OAuth2 providers' },
+          { error: 'Access token is required for OAuth2 providers (unless using Nylas)' },
           { status: 400 }
         )
       }
@@ -84,15 +89,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let nylasAccountId: string | undefined
+
+    // Create account via Nylas if requested
+    if (useNylas || process.env.PREFER_NYLAS === 'true') {
+      try {
+        nylasAccountId = await nylasService.createAccount(accountData)
+        console.log('Created Nylas account:', nylasAccountId)
+      } catch (error) {
+        console.error('Failed to create Nylas account:', error)
+        if (useNylas) {
+          // If client specifically requested Nylas, fail the request
+          return NextResponse.json(
+            { 
+              error: 'Failed to create Nylas account',
+              details: error instanceof Error ? error.message : 'Unknown error'
+            },
+            { status: 500 }
+          )
+        }
+      }
+    }
+
+    // Create account via email service (with optional Nylas ID)
     const account = await emailService.createEmailAccount(
       payload.orgId,
       payload.sub,
-      accountData
+      {
+        ...accountData,
+        externalId: nylasAccountId,
+        metadata: {
+          nylasAccountId,
+          useNylas: !!nylasAccountId
+        }
+      }
     )
+
+    // Start real-time sync if enabled
+    if (account.syncEnabled) {
+      try {
+        await emailSyncService.startRealTimeSync(account.id)
+      } catch (error) {
+        console.error('Failed to start real-time sync:', error)
+        // Don't fail account creation if sync setup fails
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: account,
+      data: {
+        ...account,
+        useNylas: !!nylasAccountId,
+        nylasAccountId
+      },
       meta: {
         timestamp: new Date().toISOString(),
         requestId: crypto.randomUUID()

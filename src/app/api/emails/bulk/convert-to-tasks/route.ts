@@ -2,10 +2,9 @@
 // Converts multiple emails to tasks in batch
 
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth'
-import { emailService } from '@/lib/email-service'
-import { type TaskCreationData } from '@/types'
+import { prisma } from '../../../../../lib/prisma'
+import { verifyToken } from '../../../../../lib/auth'
+import { emailToTaskService } from '../../../../../lib/email-to-task-service'
 
 
 interface BulkConversionRequest {
@@ -67,10 +66,7 @@ export async function POST(request: NextRequest) {
         account: { userId: payload.sub }
       },
       include: {
-        attachments: true,
-        account: {
-          select: { email: true, displayName: true }
-        }
+        account: true
       }
     })
 
@@ -81,149 +77,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Process each email
-    const results: ConversionResult[] = []
-    const createdTasks: any[] = []
+    // Get user's organization
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { organizationId: true }
+    })
 
-    for (const email of emails) {
-      try {
-        // Generate task title
-        const title = taskPrefix 
-          ? `${taskPrefix}: ${email.subject || 'Email task'}`
-          : email.subject || 'Task from email'
-
-        // Create task data
-        const taskData: TaskCreationData = {
-          title: title.length > 200 ? `${title.substring(0, 197)  }...` : title,
-          description: generateTaskDescription(email),
-          status: 'TODO',
-          priority: defaultPriority,
-          assignedTo: defaultAssignee || null,
-          createdBy: payload.sub,
-          organizationId: payload.orgId,
-          metadata: {
-            sourceType: 'email',
-            sourceId: email.id,
-            fromAddress: email.fromAddress,
-            emailSubject: email.subject,
-            convertedAt: new Date().toISOString(),
-            bulkConversion: true
-          }
-        }
-
-        // Create the task
-        const task = await prisma.task.create({
-          data: taskData,
-          include: {
-            assignedUser: {
-              select: { id: true, firstName: true, lastName: true, email: true }
-            },
-            createdByUser: {
-              select: { id: true, firstName: true, lastName: true, email: true }
-            }
-          }
-        })
-
-        // Link email to task
-        await emailService.linkEmailToTask(email.id, task.id, payload.sub)
-
-        // Handle attachments if requested
-        if (includeAttachments && email.attachments.length > 0) {
-          await Promise.all(
-            email.attachments.map(async (attachment) => {
-              try {
-                await prisma.taskAttachment.create({
-                  data: {
-                    taskId: task.id,
-                    fileName: attachment.filename,
-                    filePath: attachment.filePath || '',
-                    fileSize: attachment.size,
-                    mimeType: attachment.contentType,
-                    uploadedBy: payload.sub
-                  }
-                })
-              } catch (error) {
-                console.error(`Failed to attach file ${attachment.filename}:`, error)
-              }
-            })
-          )
-        }
-
-        // Apply default tags if provided
-        if (defaultTags.length > 0) {
-          await Promise.all(
-            defaultTags.map(async (tagName) => {
-              try {
-                // Find or create tag
-                let tag = await prisma.tag.findFirst({
-                  where: {
-                    organizationId: payload.orgId,
-                    name: tagName
-                  }
-                })
-
-                if (!tag) {
-                  tag = await prisma.tag.create({
-                    data: {
-                      organizationId: payload.orgId,
-                      name: tagName,
-                      createdBy: payload.sub
-                    }
-                  })
-                }
-
-                // Create tagging relationship
-                await prisma.tagging.create({
-                  data: {
-                    tagId: tag.id,
-                    taggableType: 'task',
-                    taggableId: task.id,
-                    taggedBy: payload.sub
-                  }
-                })
-              } catch (error) {
-                console.error(`Failed to apply tag ${tagName}:`, error)
-              }
-            })
-          )
-        }
-
-        results.push({
-          emailId: email.id,
-          taskId: task.id,
-          success: true
-        })
-
-        createdTasks.push(task)
-      } catch (error) {
-        console.error(`Failed to convert email ${email.id}:`, error)
-        results.push({
-          emailId: email.id,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        })
-      }
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const successful = results.filter(r => r.success).length
-    const failed = results.filter(r => !r.success).length
+    // Convert emails to EmailMessage format
+    const emailMessages = emails.map(email => ({
+      id: email.id,
+      threadId: email.threadId,
+      from: email.from,
+      to: email.to || '',
+      cc: email.cc || '',
+      bcc: email.bcc || '',
+      subject: email.subject,
+      date: email.date,
+      bodyText: email.bodyText || '',
+      bodyHtml: email.bodyHtml || '',
+      snippet: email.snippet || '',
+      labels: email.labels as string[],
+      isRead: email.isRead,
+      isStarred: email.isStarred,
+      hasAttachments: email.hasAttachments,
+      internalDate: email.internalDate || email.date
+    }))
+
+    // Use AI-powered batch processing
+    const batchResult = await emailToTaskService.batchProcessEmails(
+      emailMessages,
+      user.organizationId,
+      payload.sub,
+      emails[0].accountId
+    )
 
     return NextResponse.json({
       success: true,
       data: {
-        results,
+        results: batchResult.results,
         summary: {
-          total: emailIds.length,
-          successful,
-          failed,
-          tasksCreated: createdTasks.length
-        },
-        createdTasks
+          total: batchResult.processed,
+          successful: batchResult.tasksCreated,
+          failed: batchResult.errors,
+          tasksCreated: batchResult.tasksCreated
+        }
       },
       meta: {
         timestamp: new Date().toISOString(),
         requestId: crypto.randomUUID(),
-        bulkOperation: true
+        bulkOperation: true,
+        aiPowered: true
       }
     }, { status: 201 })
   } catch (error) {

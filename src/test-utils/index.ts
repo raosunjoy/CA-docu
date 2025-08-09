@@ -1,5 +1,5 @@
 import { render, RenderOptions } from '@testing-library/react'
-import { ReactElement, ReactNode } from 'react'
+import { ReactElement } from 'react'
 import { Task, Document, Organization } from '@/types'
 import { User } from '@/hooks/useAuth'
 
@@ -72,7 +72,9 @@ const customRender = (
   ui: ReactElement,
   options: CustomRenderOptions = {}
 ) => {
-  const { initialUser: _initialUser, ...renderOptions } = options
+  const { initialUser, ...renderOptions } = options
+  // TODO: Use initialUser for auth context setup when needed
+  void initialUser
 
   return render(ui, renderOptions)
 }

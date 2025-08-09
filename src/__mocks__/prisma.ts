@@ -73,8 +73,28 @@ export class PrismaClient {
   email = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
-    create: jest.fn(),
+    findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'created_email_id' }),
     update: jest.fn(),
+    delete: jest.fn(),
+    upsert: jest.fn().mockResolvedValue({ id: 'upserted_email_id' })
+  }
+  
+  emailAccount = {
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    findFirst: jest.fn().mockResolvedValue({
+      id: 'test_account_id',
+      email: 'test@example.com',
+      accessToken: 'encrypted_access_token',
+      refreshToken: 'encrypted_refresh_token',
+      provider: 'GMAIL'
+    }),
+    create: jest.fn(),
+    update: jest.fn().mockResolvedValue({
+      id: 'test_account_id',
+      email: 'test@example.com'
+    }),
     delete: jest.fn()
   }
   
@@ -125,6 +145,8 @@ export class PrismaClient {
     update: jest.fn(),
     delete: jest.fn()
   }
+  
+  $disconnect = jest.fn().mockResolvedValue(undefined)
 }
 
 // Mock types for TypeScript

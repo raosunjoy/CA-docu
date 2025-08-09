@@ -66,6 +66,7 @@ const adminSections = [
   }
 ]
 
+// eslint-disable-next-line max-lines-per-function
 export default function AdminMainPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)

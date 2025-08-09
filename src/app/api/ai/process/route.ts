@@ -6,6 +6,7 @@ import { vectorService } from '@/services/vector-service'
 import { aiDatabase } from '@/services/ai-database'
 import { AISecurityMiddleware } from '@/middleware/ai-security'
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`

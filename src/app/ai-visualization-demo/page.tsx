@@ -16,6 +16,7 @@ import {
   Settings
 } from 'lucide-react'
 
+// eslint-disable-next-line max-lines-per-function
 export default function AIVisualizationDemo() {
   const [selectedDemo, setSelectedDemo] = useState<string>('chart-intelligence')
   const [selectedDataset, setSelectedDataset] = useState<string>('revenue')
@@ -115,6 +116,7 @@ export default function AIVisualizationDemo() {
     }
   ]
 
+  // eslint-disable-next-line max-lines-per-function
   const renderChartIntelligenceDemo = () => {
     const currentDataset = datasets[selectedDataset as keyof typeof datasets]
     

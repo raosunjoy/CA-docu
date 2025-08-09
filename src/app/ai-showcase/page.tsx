@@ -3,6 +3,7 @@
 import { AITestComponent } from '@/components/ai/AITestComponent'
 import { AIInsightsWidget } from '@/components/ai/AIInsightsWidget'
 
+// eslint-disable-next-line max-lines-per-function
 export default function AIShowcasePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">

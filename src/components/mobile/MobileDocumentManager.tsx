@@ -28,7 +28,9 @@ import {
   Star,
   Share2,
   Trash2,
-  Edit3
+  Edit3,
+  FileText,
+  Image as ImageIcon
 } from 'lucide-react'
 
 interface MobileDocumentManagerProps {

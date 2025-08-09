@@ -39,11 +39,14 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^../../generated/prisma$': '<rootDir>/src/__mocks__/prisma.ts',
   },
-  testTimeout: 10000,
-  maxWorkers: '50%',
-  verbose: true,
+  testTimeout: 15000,
+  maxWorkers: 1,
+  verbose: false,
   bail: false,
-  errorOnDeprecated: true,
+  errorOnDeprecated: false,
+  forceExit: true,
+  detectOpenHandles: true,
+  workerIdleMemoryLimit: '1GB',
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

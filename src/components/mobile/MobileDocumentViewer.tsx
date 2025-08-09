@@ -22,7 +22,8 @@ import {
   ChevronRight,
   MoreVertical,
   Maximize,
-  Minimize
+  Minimize,
+  FileText
 } from 'lucide-react'
 
 interface MobileDocumentViewerProps {
