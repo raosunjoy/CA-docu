@@ -5,7 +5,7 @@ import { analyticsService } from '../analytics-service'
 // Mock dependencies
 jest.mock('../openai-service')
 jest.mock('../analytics-service')
-jest.mock('../caching-service')
+jest.mock('../../lib/caching-service')
 
 const mockedOpenAIService = openaiService as jest.Mocked<typeof openaiService>
 const mockedAnalyticsService = analyticsService as jest.Mocked<typeof analyticsService>

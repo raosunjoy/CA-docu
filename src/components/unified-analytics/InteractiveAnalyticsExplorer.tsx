@@ -17,7 +17,7 @@ import {
   BarChart3,
   LineChart,
   PieChart,
-  Scatter,
+  ScatterChart as Scatter,
   Activity
 } from 'lucide-react';
 

@@ -701,13 +701,15 @@ export class AnomalyDetectionService {
     const threshold = config.customThresholds?.statisticalThreshold || 
                      thresholds[config.sensitivity as keyof typeof thresholds] || 2.5
 
-    data.forEach((record, index) => {
-      baseline.metrics.forEach(metric => {
+    for (let index = 0; index < data.length; index++) {
+      const record = data[index]
+      for (const metric of baseline.metrics) {
         const value = parseFloat(record[metric.field]) || 0
         const zScore = model.calculateZScore(value, metric.mean, metric.std)
         
         if (Math.abs(zScore) > threshold) {
           const severity = this.calculateSeverity(Math.abs(zScore), threshold)
+          const businessImpact = await this.assessBusinessImpact(record, metric.field, context)
           
           anomalies.push({
             id: `stat_${Date.now()}_${index}_${metric.field}`,
@@ -758,12 +760,12 @@ export class AnomalyDetectionService {
                 seasonalityImpact: 0
               }
             },
-            businessImpact: await this.assessBusinessImpact(record, metric.field, context),
+            businessImpact,
             similarHistoricalAnomalies: []
           })
         }
-      })
-    })
+      }
+    }
 
     return anomalies
   }
@@ -786,8 +788,10 @@ export class AnomalyDetectionService {
     const trainedModel = await model.fit(features)
     const predictions = await model.predict(trainedModel, features)
 
-    predictions.forEach((prediction, index) => {
+    for (let index = 0; index < predictions.length; index++) {
+      const prediction = predictions[index]
       if (prediction === 1) { // Anomaly detected
+        const businessImpact = await this.assessBusinessImpact(data[index], 'multivariate', context)
         anomalies.push({
           id: `if_${Date.now()}_${index}`,
           type: 'POINT_ANOMALY',
@@ -830,11 +834,11 @@ export class AnomalyDetectionService {
               seasonalityImpact: 0
             }
           },
-          businessImpact: await this.assessBusinessImpact(data[index], 'multivariate', context),
+          businessImpact,
           similarHistoricalAnomalies: []
         })
       }
-    })
+    }
 
     return anomalies
   }

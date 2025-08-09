@@ -3,10 +3,13 @@ import 'whatwg-fetch'
 
 // Polyfill ReadableStream for Node.js environment
 import { ReadableStream, WritableStream, TransformStream } from 'node:stream/web'
+import { TextEncoder, TextDecoder } from 'node:util'
 
 global.ReadableStream = ReadableStream
 global.WritableStream = WritableStream
 global.TransformStream = TransformStream
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
 
 // Mock Next.js router
 jest.mock('next/router', () => ({

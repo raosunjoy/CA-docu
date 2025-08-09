@@ -80,7 +80,7 @@ function generateAIResponse(message: string, context: any[]) {
       suggestions: [
         'Show me revenue by service type',
         'Compare with last year',
-        'What's driving the growth?',
+        'What is driving the growth?',
         'Generate revenue forecast'
       ]
     };
