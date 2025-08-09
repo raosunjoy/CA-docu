@@ -1,17 +1,46 @@
-import { UnifiedDataLayer, DataLayerTier } from '../data-layer'
+import { UnifiedDataLayer, DataLayerTier, VectorData, TimeSeriesData } from '../data-layer'
+import { PrismaClient } from '@prisma/client'
 
-// Mock Prisma
+// Mock Prisma Client with comprehensive database methods
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
-    $disconnect: jest.fn()
+    $connect: jest.fn().mockResolvedValue(undefined),
+    $disconnect: jest.fn().mockResolvedValue(undefined),
+    unifiedDataRecord: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      upsert: jest.fn()
+    },
+    vectorDataStore: {
+      upsert: jest.fn(),
+      findMany: jest.fn()
+    },
+    timeSeriesDataStore: {
+      upsert: jest.fn(),
+      findMany: jest.fn()
+    },
+    knowledgeGraphEdge: {
+      upsert: jest.fn(),
+      findMany: jest.fn()
+    },
+    featureStore: {
+      upsert: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn()
+    }
   }))
 }))
 
 describe('UnifiedDataLayer', () => {
   let dataLayer: UnifiedDataLayer
+  let mockPrisma: any
 
   beforeEach(() => {
+    jest.clearAllMocks()
     dataLayer = new UnifiedDataLayer()
+    // Access the mocked prisma instance
+    mockPrisma = (dataLayer as any).prisma
   })
 
   afterEach(async () => {
@@ -22,6 +51,21 @@ describe('UnifiedDataLayer', () => {
     it('should ingest raw data successfully', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
       
+      mockPrisma.unifiedDataRecord.create.mockResolvedValue({
+        id: 'bronze_123_abc',
+        organizationId: 'demo-org',
+        tier: 'BRONZE',
+        source: 'client-system',
+        timestamp: new Date(),
+        data: {
+          clientName: 'ABC Corp',
+          revenue: 100000,
+          documents: ['file1.pdf', 'file2.xlsx']
+        },
+        metadata: {},
+        relationships: []
+      })
+      
       const testData = {
         clientName: 'ABC Corp',
         revenue: 100000,
@@ -31,8 +75,31 @@ describe('UnifiedDataLayer', () => {
       const recordId = await dataLayer.ingestRawData('client-system', testData)
       
       expect(recordId).toMatch(/^bronze_\d+_[a-z0-9]+$/)
+      expect(mockPrisma.unifiedDataRecord.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id: expect.stringMatching(/^bronze_\d+_[a-z0-9]+$/),
+          organizationId: 'demo-org',
+          tier: 'BRONZE',
+          source: 'client-system',
+          data: testData,
+          metadata: expect.objectContaining({
+            schema: 'raw',
+            version: '1.0',
+            quality: expect.any(Number),
+            lineage: ['client-system'],
+            tags: [],
+            validation: expect.objectContaining({
+              validated: true,
+              size: expect.any(Number),
+              fields: 3
+            })
+          }),
+          relationships: [],
+          checksum: expect.any(String)
+        })
+      })
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Storing bronze record: bronze_\d+_[a-z0-9]+/)
+        expect.stringMatching(/✅ Stored bronze record: bronze_\d+_[a-z0-9]+/)
       )
       
       consoleSpy.mockRestore()
@@ -85,7 +152,7 @@ describe('UnifiedDataLayer', () => {
       
       expect(silverRecordId).toMatch(/^silver_\d+_[a-z0-9]+$/)
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Storing silver record: silver_\d+_[a-z0-9]+/)
+        expect.stringMatching(/✅ Stored silver record: silver_\d+_[a-z0-9]+/)
       )
       
       consoleSpy.mockRestore()
@@ -131,7 +198,7 @@ describe('UnifiedDataLayer', () => {
       
       expect(goldRecordId).toMatch(/^gold_\d+_[a-z0-9]+$/)
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Storing gold record: gold_\d+_[a-z0-9]+/)
+        expect.stringMatching(/✅ Stored gold record: gold_\d+_[a-z0-9]+/)
       )
       
       consoleSpy.mockRestore()
@@ -203,7 +270,7 @@ describe('UnifiedDataLayer', () => {
       
       expect(platinumRecordId).toMatch(/^platinum_\d+_[a-z0-9]+$/)
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Storing platinum record: platinum_\d+_[a-z0-9]+/)
+        expect.stringMatching(/✅ Stored platinum record: platinum_\d+_[a-z0-9]+/)
       )
       
       consoleSpy.mockRestore()
@@ -212,6 +279,17 @@ describe('UnifiedDataLayer', () => {
 
   describe('Vector Database', () => {
     it('should store and search vector data', async () => {
+      mockPrisma.vectorDataStore.upsert.mockResolvedValue({})
+      mockPrisma.vectorDataStore.findMany.mockResolvedValue([
+        {
+          contentId: 'vector_1',
+          content: 'Test document content',
+          embedding: [0.1, 0.2, 0.3, 0.4],
+          tier: 'SILVER',
+          metadata: { type: 'document' }
+        }
+      ])
+
       const vectorData = {
         id: 'vector_1',
         content: 'Test document content',
@@ -226,12 +304,24 @@ describe('UnifiedDataLayer', () => {
       const results = await dataLayer.searchVectorData(queryEmbedding, 'silver', 5)
 
       expect(results).toHaveLength(1)
-      expect(results[0].data).toEqual(vectorData)
+      expect(results[0].data.id).toBe('vector_1')
+      expect(results[0].data.content).toBe('Test document content')
       expect(results[0].similarity).toBeGreaterThan(0)
       expect(results[0].similarity).toBeLessThanOrEqual(1)
     })
 
     it('should filter vector search by tier', async () => {
+      mockPrisma.vectorDataStore.upsert.mockResolvedValue({})
+      mockPrisma.vectorDataStore.findMany.mockResolvedValue([
+        {
+          contentId: 'vector_bronze',
+          content: 'Bronze content',
+          embedding: [0.1, 0.2],
+          tier: 'BRONZE',
+          metadata: {}
+        }
+      ])
+
       const bronzeVector = {
         id: 'vector_bronze',
         content: 'Bronze content',
@@ -269,6 +359,17 @@ describe('UnifiedDataLayer', () => {
         tier: 'silver' as DataLayerTier
       }
 
+      mockPrisma.timeSeriesDataStore.upsert.mockResolvedValue({})
+      mockPrisma.timeSeriesDataStore.findMany.mockResolvedValue([
+        {
+          timestamp: now,
+          metric: 'cpu_usage',
+          value: '75.5',
+          tags: { server: 'web-01' },
+          tier: 'SILVER'
+        }
+      ])
+
       await dataLayer.storeTimeSeriesData(timeSeriesData)
 
       const retrieved = await dataLayer.getTimeSeriesData('cpu_usage')
@@ -296,6 +397,17 @@ describe('UnifiedDataLayer', () => {
         tier: 'silver' as DataLayerTier
       }
 
+      mockPrisma.timeSeriesDataStore.upsert.mockResolvedValue({})
+      mockPrisma.timeSeriesDataStore.findMany.mockResolvedValue([
+        {
+          timestamp: baseTime,
+          metric: 'test_metric',
+          value: '2',
+          tags: {},
+          tier: 'SILVER'
+        }
+      ])
+
       await dataLayer.storeTimeSeriesData(data1)
       await dataLayer.storeTimeSeriesData(data2)
 
@@ -311,6 +423,14 @@ describe('UnifiedDataLayer', () => {
 
   describe('Knowledge Graph', () => {
     it('should store and retrieve knowledge relations', async () => {
+      mockPrisma.knowledgeGraphEdge.upsert.mockResolvedValue({})
+      mockPrisma.knowledgeGraphEdge.findMany.mockImplementation(({ where }) => {
+        if (where.relationship === 'owns') {
+          return Promise.resolve([{ toEntity: 'Document_123' }])
+        }
+        return Promise.resolve([{ toEntity: 'Document_123' }, { toEntity: 'Task_456' }])
+      })
+
       await dataLayer.addKnowledgeRelation('Client_ABC', 'Document_123', 'owns')
       await dataLayer.addKnowledgeRelation('Client_ABC', 'Task_456', 'requires')
 
@@ -322,6 +442,12 @@ describe('UnifiedDataLayer', () => {
     })
 
     it('should handle multiple entities for same relation', async () => {
+      mockPrisma.knowledgeGraphEdge.upsert.mockResolvedValue({})
+      mockPrisma.knowledgeGraphEdge.findMany.mockResolvedValue([
+        { toEntity: 'Doc_1' },
+        { toEntity: 'Doc_2' }
+      ])
+
       await dataLayer.addKnowledgeRelation('Client_ABC', 'Doc_1', 'owns')
       await dataLayer.addKnowledgeRelation('Client_ABC', 'Doc_2', 'owns')
 
@@ -339,6 +465,11 @@ describe('UnifiedDataLayer', () => {
         features: [1, 2, 3, 4, 5] 
       }
 
+      mockPrisma.featureStore.upsert.mockResolvedValue({})
+      mockPrisma.featureStore.findFirst.mockResolvedValue({
+        featureValue: feature
+      })
+
       await dataLayer.storeFeature('client_abc_features', feature)
 
       const retrieved = await dataLayer.getFeature('client_abc_features')
@@ -346,6 +477,12 @@ describe('UnifiedDataLayer', () => {
     })
 
     it('should retrieve multiple features at once', async () => {
+      mockPrisma.featureStore.upsert.mockResolvedValue({})
+      mockPrisma.featureStore.findMany.mockResolvedValue([
+        { featureKey: 'feature_1', featureValue: { value: 1 } },
+        { featureKey: 'feature_2', featureValue: { value: 2 } }
+      ])
+
       await dataLayer.storeFeature('feature_1', { value: 1 })
       await dataLayer.storeFeature('feature_2', { value: 2 })
 
@@ -354,7 +491,7 @@ describe('UnifiedDataLayer', () => {
       expect(features).toEqual({
         feature_1: { value: 1 },
         feature_2: { value: 2 },
-        feature_3: undefined
+        feature_3: null
       })
     })
   })

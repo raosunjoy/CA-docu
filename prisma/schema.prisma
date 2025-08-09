@@ -141,6 +141,13 @@ model Organization {
   clientInvoices    ClientInvoice[]
   clientProgressUpdates ClientProgressUpdate[]
 
+  // Unified Data Layer relations
+  unifiedDataRecords UnifiedDataRecord[] @relation("UnifiedDataRecords")
+  vectorDataRecords  VectorDataStore[]   @relation("VectorDataRecords")
+  timeSeriesData     TimeSeriesDataStore[] @relation("TimeSeriesData")
+  knowledgeGraphEdges KnowledgeGraphEdge[] @relation("KnowledgeGraphEdges")
+  featureStoreRecords FeatureStore[]      @relation("FeatureStoreRecords")
+
   @@map("organizations")
 }
 
@@ -2440,4 +2447,123 @@ model DashboardWidget {
   @@index([dashboardId])
   @@index([type])
   @@map("dashboard_widgets")
+}
+
+// Unified Data Layer Models
+
+enum DataLayerTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model UnifiedDataRecord {
+  id             String        @id @default(cuid())
+  organizationId String
+  tier           DataLayerTier
+  source         String
+  timestamp      DateTime      @default(now())
+  data           Json          // Actual data payload
+  metadata       Json          // Quality, lineage, tags, schema info
+  relationships  Json          @default("[]") // Array of relationship objects
+  checksum       String?       // For data integrity
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  organization   Organization  @relation("UnifiedDataRecords", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([tier])
+  @@index([source])
+  @@index([timestamp])
+  @@index([checksum])
+  @@map("unified_data_records")
+}
+
+model VectorDataStore {
+  id             String        @id @default(cuid())
+  organizationId String
+  contentId      String        // Reference to original content
+  content        String        // Searchable text content
+  embedding      Json          // Vector embedding as JSON array
+  tier           DataLayerTier
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  organization   Organization  @relation("VectorDataRecords", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, contentId])
+  @@index([organizationId])
+  @@index([tier])
+  @@index([contentId])
+  @@map("vector_data_store")
+}
+
+model TimeSeriesDataStore {
+  id             String        @id @default(cuid())
+  organizationId String
+  metric         String
+  timestamp      DateTime
+  value          Decimal       @db.Decimal(20, 6)
+  tags           Json          @default("{}")
+  tier           DataLayerTier
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+
+  // Relations
+  organization   Organization  @relation("TimeSeriesData", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, metric, timestamp])
+  @@index([organizationId])
+  @@index([metric])
+  @@index([timestamp])
+  @@index([tier])
+  @@map("time_series_data_store")
+}
+
+model KnowledgeGraphEdge {
+  id             String       @id @default(cuid())
+  organizationId String
+  fromEntity     String
+  toEntity       String
+  relationship   String
+  weight         Decimal?     @db.Decimal(8, 4) // Relationship strength
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  organization   Organization @relation("KnowledgeGraphEdges", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fromEntity, toEntity, relationship])
+  @@index([organizationId])
+  @@index([fromEntity])
+  @@index([toEntity])
+  @@index([relationship])
+  @@map("knowledge_graph_edges")
+}
+
+model FeatureStore {
+  id             String       @id @default(cuid())
+  organizationId String
+  featureKey     String
+  featureValue   Json
+  dataType       String       // 'scalar', 'vector', 'object'
+  version        Int          @default(1)
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  organization   Organization @relation("FeatureStoreRecords", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, featureKey, version])
+  @@index([organizationId])
+  @@index([featureKey])
+  @@index([dataType])
+  @@map("feature_store")
 }
