@@ -38,12 +38,20 @@ class OfflineChatService {
   private readonly DB_NAME = 'zetra_chat_offline'
   private readonly DB_VERSION = 1
   private syncQueue: OfflineMessage[] = []
-  private isOnline = navigator.onLine
+  private isOnline = typeof window !== 'undefined' ? navigator.onLine : false
   private syncInProgress = false
 
   constructor() {
-    this.initDB()
-    this.setupOnlineListener()
+    // Only initialize in browser environment
+    if (typeof window !== 'undefined') {
+      this.initDB()
+      this.setupOnlineListener()
+    }
+  }
+
+  // Check if we're in browser environment
+  private isBrowser(): boolean {
+    return typeof window !== 'undefined' && typeof indexedDB !== 'undefined'
   }
 
   // Initialize IndexedDB
@@ -108,7 +116,7 @@ class OfflineChatService {
 
   // Cache messages for offline access
   async cacheMessages(channelId: string, messages: ChatMessageWithUser[]): Promise<void> {
-    if (!this.db) return
+    if (!this.isBrowser() || !this.db) return
 
     try {
       const tx = this.db.transaction('messages', 'readwrite')
@@ -135,7 +143,7 @@ class OfflineChatService {
 
   // Get cached messages for offline viewing
   async getCachedMessages(channelId: string, limit = 50): Promise<ChatMessageWithUser[]> {
-    if (!this.db) return []
+    if (!this.isBrowser() || !this.db) return []
 
     try {
       const tx = this.db.transaction('messages', 'readonly')
@@ -260,7 +268,7 @@ class OfflineChatService {
 
   // Sync offline messages when online
   async syncOfflineMessages(): Promise<void> {
-    if (!this.db || this.syncInProgress || !this.isOnline) return
+    if (!this.isBrowser() || !this.db || this.syncInProgress || !this.isOnline) return
 
     this.syncInProgress = true
 

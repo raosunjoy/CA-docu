@@ -1,4 +1,6 @@
-import React from 'react'
+'use client'
+
+import React, { useState, useEffect } from 'react'
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 import { BaseChart, chartTheme, CustomTooltip } from './BaseChart'
 
@@ -35,6 +37,18 @@ export const LineChart: React.FC<LineChartProps> = ({
   interactive = true,
   showActions = true
 }) => {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const handlePointClick = (data: any, index: number) => {
     if (interactive && onPointClick) {
       onPointClick(data, index)
@@ -69,8 +83,8 @@ export const LineChart: React.FC<LineChartProps> = ({
         data={data} 
         margin={{ 
           top: 5, 
-          right: window.innerWidth < 768 ? 10 : 30, 
-          left: window.innerWidth < 768 ? 10 : 20, 
+          right: isMobile ? 10 : 30, 
+          left: isMobile ? 10 : 20, 
           bottom: 5 
         }}
         onClick={handlePointClick}
@@ -85,17 +99,17 @@ export const LineChart: React.FC<LineChartProps> = ({
         <XAxis 
           dataKey={xKey}
           stroke={chartTheme.axis.stroke}
-          fontSize={window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize}
+          fontSize={isMobile ? 10 : chartTheme.axis.fontSize}
           fontFamily={chartTheme.axis.fontFamily}
-          angle={window.innerWidth < 768 ? -45 : 0}
-          textAnchor={window.innerWidth < 768 ? 'end' : 'middle'}
-          height={window.innerWidth < 768 ? 60 : 30}
+          angle={isMobile ? -45 : 0}
+          textAnchor={isMobile ? 'end' : 'middle'}
+          height={isMobile ? 60 : 30}
         />
         <YAxis 
           stroke={chartTheme.axis.stroke}
-          fontSize={window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize}
+          fontSize={isMobile ? 10 : chartTheme.axis.fontSize}
           fontFamily={chartTheme.axis.fontFamily}
-          width={window.innerWidth < 768 ? 40 : 60}
+          width={isMobile ? 40 : 60}
         />
         <Tooltip 
           content={<CustomTooltip valueType={valueType} />}
@@ -103,7 +117,7 @@ export const LineChart: React.FC<LineChartProps> = ({
         {showLegend && (
           <Legend 
             wrapperStyle={{
-              fontSize: window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize,
+              fontSize: isMobile ? 10 : chartTheme.axis.fontSize,
               fontFamily: chartTheme.axis.fontFamily
             }}
           />

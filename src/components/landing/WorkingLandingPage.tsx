@@ -220,12 +220,12 @@ export default function WorkingLandingPage() {
       {/* Features Section */}
       <div id="features" style={{
         background: '#F9FAFB',
-        padding: '60px 20px',
+        padding: '80px 20px',
         borderRadius: '12px'
       }}>
         <div style={{
           textAlign: 'center',
-          marginBottom: '50px'
+          marginBottom: '60px'
         }}>
           <h3 style={{
             fontSize: '2.5rem',
@@ -233,130 +233,445 @@ export default function WorkingLandingPage() {
             marginBottom: '16px',
             color: '#111827'
           }}>
-            Everything You Need to Excel
+            The Most Advanced CA Platform
           </h3>
           <p style={{
             fontSize: '1.25rem',
-            color: '#6B7280'
+            color: '#6B7280',
+            marginBottom: '20px'
           }}>
-            Powerful features designed for modern CA practices
+            AI-powered features, intelligent automation, and seamless collaboration
           </p>
+          <div style={{
+            background: '#EBF8FF',
+            color: '#1E40AF',
+            display: 'inline-block',
+            padding: '8px 20px',
+            borderRadius: '25px',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}>
+            🤖 Powered by Advanced AI & Machine Learning
+          </div>
         </div>
 
+        {/* AI & Intelligence Features */}
+        <div style={{ marginBottom: '80px' }}>
+          <h4 style={{
+            fontSize: '1.8rem',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            marginBottom: '40px',
+            color: '#111827'
+          }}>
+            🧠 Artificial Intelligence & Smart Automation
+          </h4>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '25px',
+            maxWidth: '1400px',
+            margin: '0 auto'
+          }}>
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#10B981',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 'bold'
+              }}>AI-POWERED</div>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>🤖</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Email Workflow Automation</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                AI analyzes emails, extracts insights, auto-creates tasks, and suggests optimal workflows with 95% accuracy
+              </p>
+            </div>
+
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#F59E0B',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 'bold'
+              }}>PREDICTIVE</div>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>📈</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Advanced Predictive Analytics</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                ML models predict client churn, revenue forecasting, and business growth opportunities with real-time insights
+              </p>
+            </div>
+
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#EF4444',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 'bold'
+              }}>INTELLIGENT</div>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>🎯</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Anomaly Detection & Risk Intelligence</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                AI monitors patterns, detects financial anomalies, and provides risk assessment with automated alerts
+              </p>
+            </div>
+
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#8B5CF6',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 'bold'
+              }}>NLP-POWERED</div>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>💬</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Intelligent AI Assistant & Chat</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                Context-aware AI assistant with offline capabilities, smart document analysis, and natural language processing
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Communication & Collaboration */}
+        <div style={{ marginBottom: '80px' }}>
+          <h4 style={{
+            fontSize: '1.8rem',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            marginBottom: '40px',
+            color: '#111827'
+          }}>
+            💬 Advanced Communication & Collaboration
+          </h4>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '25px',
+            maxWidth: '1400px',
+            margin: '0 auto'
+          }}>
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)'
+            }}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #10B981, #059669)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>🚀</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Real-time Team Chat & WebSocket</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                Instant messaging, file sharing, task-specific channels with offline sync and message queuing
+              </p>
+            </div>
+
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)'
+            }}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>📧</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Bi-directional Email Integration</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                Gmail/Outlook sync, email-to-task conversion, automated responses with sentiment analysis
+              </p>
+            </div>
+
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)'
+            }}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>👥</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Enhanced Client Portal</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                Role-based dashboards, document sharing, progress tracking with real-time engagement analytics
+              </p>
+            </div>
+
+            <div style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '16px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08)'
+            }}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                background: 'linear-gradient(135deg, #EC4899, #DB2777)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                marginBottom: '20px'
+              }}>🔄</div>
+              <h5 style={{
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '10px',
+                color: '#111827'
+              }}>Offline-First Collaboration</h5>
+              <p style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.5' }}>
+                Work offline, auto-sync when online, conflict resolution with encrypted local storage
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Features */}
+        <div style={{ marginBottom: '60px' }}>
+          <h4 style={{
+            fontSize: '1.8rem',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            marginBottom: '40px',
+            color: '#111827'
+          }}>
+            ⚡ Enterprise-Grade Features
+          </h4>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '20px',
+            maxWidth: '1400px',
+            margin: '0 auto'
+          }}>
+            {[
+              { icon: '📊', title: 'Interactive Analytics Dashboard', desc: '20+ chart types, drill-down capabilities, custom KPIs' },
+              { icon: '🏗️', title: 'Unified Data Architecture', desc: '4-tier data pipeline, real-time processing, ETL automation' },
+              { icon: '📱', title: 'Cross-Platform Mobile App', desc: 'Flutter/React Native, offline sync, responsive design' },
+              { icon: '🔐', title: 'Advanced Security & Compliance', desc: 'AES-256 encryption, SSO, 2FA, ICAI compliance ready' },
+              { icon: '🏷️', title: 'Hierarchical Tagging System', desc: 'Global tags, smart categorization, auto-suggestions' },
+              { icon: '⏰', title: 'Smart Task Management', desc: 'Kanban/Calendar views, workflow automation, role-based locks' },
+              { icon: '📄', title: 'Document Intelligence', desc: 'Version control, OCR, automated categorization, cloud sync' },
+              { icon: '📈', title: 'Financial Forecasting', desc: 'Revenue prediction, cash flow analysis, growth modeling' },
+              { icon: '🎭', title: 'Role-Based Dashboards', desc: 'Partner/Manager/Associate/Intern customized interfaces' },
+              { icon: '🔍', title: 'Advanced Search & Discovery', desc: 'ElasticSearch powered, semantic search, smart filters' },
+              { icon: '📋', title: 'Automated Reporting Engine', desc: 'Scheduled reports, custom templates, multi-format export' },
+              { icon: '🌐', title: 'API-First Architecture', desc: 'REST/GraphQL APIs, webhook integrations, third-party connectors' }
+            ].map((feature, index) => (
+              <div key={index} style={{
+                background: 'white',
+                padding: '25px',
+                borderRadius: '12px',
+                border: '1px solid #E5E7EB',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)'
+              }}>
+                <div style={{
+                  fontSize: '32px',
+                  marginBottom: '15px'
+                }}>{feature.icon}</div>
+                <h6 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  marginBottom: '8px',
+                  color: '#111827'
+                }}>{feature.title}</h6>
+                <p style={{
+                  color: '#6B7280',
+                  fontSize: '13px',
+                  lineHeight: '1.4'
+                }}>{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA Section */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '30px',
-          maxWidth: '1200px',
-          margin: '0 auto'
+          textAlign: 'center',
+          background: 'linear-gradient(135deg, #9333EA, #7C3AED)',
+          padding: '50px 40px',
+          borderRadius: '20px',
+          color: 'white'
         }}>
-          <div style={{
-            background: 'white',
-            padding: '40px',
-            borderRadius: '16px',
-            border: '1px solid #E5E7EB',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+          <h4 style={{
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            marginBottom: '16px'
           }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              background: 'linear-gradient(135deg, #9333EA, #7C3AED)',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '24px',
-              marginBottom: '24px'
-            }}>
-              📊
-            </div>
-            <h4 style={{
-              fontSize: '1.25rem',
-              fontWeight: '600',
-              marginBottom: '12px',
-              color: '#111827'
-            }}>
-              Smart Analytics
-            </h4>
-            <p style={{
-              color: '#6B7280',
-              lineHeight: '1.6'
-            }}>
-              Real-time insights and reporting to help you make data-driven decisions for your practice and clients.
-            </p>
-          </div>
-
-          <div style={{
-            background: 'white',
-            padding: '40px',
-            borderRadius: '16px',
-            border: '1px solid #E5E7EB',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+            Ready to Transform Your Practice?
+          </h4>
+          <p style={{
+            fontSize: '1.2rem',
+            marginBottom: '30px',
+            opacity: '0.9'
           }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              background: 'linear-gradient(135deg, #9333EA, #7C3AED)',
+            Join thousands of CAs already using Zetra's advanced AI-powered platform
+          </p>
+          <button 
+            onClick={handleGetStarted}
+            style={{
+              padding: '16px 40px',
+              background: 'white',
+              color: '#9333EA',
+              border: 'none',
               borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '24px',
-              marginBottom: '24px'
-            }}>
-              🔒
-            </div>
-            <h4 style={{
-              fontSize: '1.25rem',
+              fontSize: '18px',
               fontWeight: '600',
-              marginBottom: '12px',
-              color: '#111827'
-            }}>
-              Secure & Compliant
-            </h4>
-            <p style={{
-              color: '#6B7280',
-              lineHeight: '1.6'
-            }}>
-              Bank-grade security with automated compliance tracking and regulatory updates to keep you protected.
-            </p>
-          </div>
-
-          <div style={{
-            background: 'white',
-            padding: '40px',
-            borderRadius: '16px',
-            border: '1px solid #E5E7EB',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
-          }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              background: 'linear-gradient(135deg, #9333EA, #7C3AED)',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '24px',
-              marginBottom: '24px'
-            }}>
-              ⚡
-            </div>
-            <h4 style={{
-              fontSize: '1.25rem',
-              fontWeight: '600',
-              marginBottom: '12px',
-              color: '#111827'
-            }}>
-              Workflow Automation
-            </h4>
-            <p style={{
-              color: '#6B7280',
-              lineHeight: '1.6'
-            }}>
-              Streamline repetitive tasks and focus on what matters most - serving your clients better.
-            </p>
-          </div>
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            Start Your Free Trial →
+          </button>
         </div>
       </div>
     </div>

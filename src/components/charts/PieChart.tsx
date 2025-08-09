@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
 import { BaseChart, chartTheme, CustomTooltip } from './BaseChart'
