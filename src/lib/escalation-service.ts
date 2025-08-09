@@ -230,7 +230,7 @@ export class EscalationService {
     const { field, operator, value, unit } = condition
 
     let fieldValue: any
-    let compareValue: any = value
+    const compareValue: any = value
 
     switch (field) {
       case 'overdue_hours':

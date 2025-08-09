@@ -59,7 +59,7 @@ export const PieChart: React.FC<PieChartProps> = ({
   }
 
   const CustomPieTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
+    if (active && payload?.length) {
       const data = payload[0].payload
       return (
         <div className="bg-gray-900 text-white p-3 rounded-lg shadow-lg border-none">

@@ -176,7 +176,7 @@ export const resolvers = {
               where: {
                 organizationId,
                 ...(userId && { assignedTo: userId }),
-                ...(filters && filters.status && { status: { in: filters.status } })
+                ...(filters?.status && { status: { in: filters.status } })
               }
             })
             metrics.push({

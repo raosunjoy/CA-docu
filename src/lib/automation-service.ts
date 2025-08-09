@@ -627,7 +627,7 @@ export class AutomationService {
     // In practice, you'd analyze task content, tags, and user specializations
     
     const recentMetrics = user.workloadMetrics[0]
-    if (recentMetrics && recentMetrics.specializations) {
+    if (recentMetrics?.specializations) {
       // Check if task tags match user specializations
       const taskTags = task.metadata?.tags || []
       const userSpecializations = recentMetrics.specializations

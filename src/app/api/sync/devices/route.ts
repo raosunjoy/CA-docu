@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { deviceInfo } = await request.json()
 
-    if (!deviceInfo || !deviceInfo.id) {
+    if (!deviceInfo?.id) {
       return NextResponse.json(
         { success: false, error: 'Device info required' },
         { status: 400 }

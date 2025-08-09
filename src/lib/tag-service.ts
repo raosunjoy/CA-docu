@@ -907,8 +907,8 @@ class TagService {
       }, {} as Record<string, number>),
       usageByUser: usageByUser.map(item => ({
         userId: item.taggedBy!,
-        userName: users.find(u => u.id === item.taggedBy)?.firstName + ' ' + 
-                 users.find(u => u.id === item.taggedBy)?.lastName || 'Unknown',
+        userName: `${users.find(u => u.id === item.taggedBy)?.firstName  } ${  
+                 users.find(u => u.id === item.taggedBy)?.lastName}` || 'Unknown',
         count: item._count.taggedBy
       })),
       usageOverTime: usageOverTime.map(item => ({

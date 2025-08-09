@@ -32,7 +32,7 @@ export const ProtectedLayout: React.FC<ProtectedLayoutProps> = ({ children }) =>
     // If authenticated and on login page, redirect to dashboard
     if (isAuthenticated && pathname === '/login') {
       router.push('/dashboard')
-      return
+      
     }
   }, [isAuthenticated, isLoading, pathname, router, isPublicRoute])
 

@@ -259,7 +259,7 @@ Be concise but comprehensive. If you're uncertain about specific regulations or 
     // This is a simplified parser - in production, you'd want more robust parsing
     
     return {
-      summary: this.extractSection(response, 'Summary') || response.substring(0, 200) + '...',
+      summary: this.extractSection(response, 'Summary') || `${response.substring(0, 200)  }...`,
       keyFindings: this.extractListItems(response, 'Key Findings'),
       entities: this.extractEntities(response),
       recommendations: this.extractListItems(response, 'Recommendations'),
@@ -430,7 +430,7 @@ Be concise but comprehensive. If you're uncertain about specific regulations or 
     }
 
     return {
-      response: roleResponses[request.context.userRole] + ' This is a mock response since OpenAI is not configured. Please add your OpenAI API key to get real AI assistance.',
+      response: `${roleResponses[request.context.userRole]  } This is a mock response since OpenAI is not configured. Please add your OpenAI API key to get real AI assistance.`,
       confidence: 0.6,
       suggestions: [
         'Configure OpenAI API key for real responses',

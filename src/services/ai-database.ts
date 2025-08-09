@@ -110,7 +110,7 @@ export class AIDatabaseService {
   async getEmbeddingByContentHash(contentHash: string): Promise<number[] | null> {
     try {
       // Mock cache lookup - in production, query database
-      console.log('🔍 Looking up cached embedding for hash:', contentHash.substring(0, 16) + '...')
+      console.log('🔍 Looking up cached embedding for hash:', `${contentHash.substring(0, 16)  }...`)
       
       // Simulate cache miss for now
       return null
@@ -126,7 +126,7 @@ export class AIDatabaseService {
       
       console.log('💾 Storing Vector Embedding:', {
         id,
-        contentHash: data.contentHash.substring(0, 16) + '...',
+        contentHash: `${data.contentHash.substring(0, 16)  }...`,
         dimensions: data.dimensions,
         model: data.model
       })

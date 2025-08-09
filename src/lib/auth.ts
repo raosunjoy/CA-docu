@@ -176,7 +176,7 @@ export function generateSecureToken(): string {
  * Extract bearer token from Authorization header
  */
 export function extractBearerToken(authHeader?: string): string | null {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     return null
   }
   return authHeader.substring(7)

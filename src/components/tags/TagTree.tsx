@@ -91,7 +91,7 @@ const TagNode: React.FC<TagNodeProps> = ({
         className={`
           flex items-center py-1 px-2 rounded-md cursor-pointer transition-colors
           ${isSelected ? 'bg-blue-100 text-blue-900' : 'hover:bg-gray-100'}
-          ${level > 0 ? 'ml-' + (level * 4) : ''}
+          ${level > 0 ? `ml-${  level * 4}` : ''}
         `}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
         onMouseEnter={() => setIsHovered(true)}

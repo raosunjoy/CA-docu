@@ -403,9 +403,9 @@ class FrontendPerformanceService {
               
               // Simple heuristic: consider rules that affect above-the-fold content as critical
               if (this.isCriticalRule(rule)) {
-                criticalCSS += ruleText + '\n'
+                criticalCSS += `${ruleText  }\n`
               } else {
-                remainingCSS += ruleText + '\n'
+                remainingCSS += `${ruleText  }\n`
               }
             })
           }

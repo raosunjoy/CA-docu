@@ -348,7 +348,7 @@ export function useOfflineDocuments(): OfflineDocumentsState & OfflineDocumentsA
 
   const getLocalFile = useCallback(async (documentId: string): Promise<File | null> => {
     const document = await offlineDocumentService.getDocument(documentId)
-    if (!document || !document.localFilePath) {
+    if (!document?.localFilePath) {
       return null
     }
 

@@ -181,7 +181,7 @@ class LoadBalancerService extends EventEmitter {
       const stickyServerId = this.stickySessionMap.get(context.sessionId)
       if (stickyServerId) {
         const stickyServer = this.servers.get(stickyServerId)
-        if (stickyServer && stickyServer.isHealthy) {
+        if (stickyServer?.isHealthy) {
           return stickyServer
         }
       }

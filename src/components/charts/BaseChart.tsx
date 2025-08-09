@@ -152,7 +152,7 @@ export const CustomTooltip = ({
   label?: string
   valueType?: 'currency' | 'percentage' | 'number'
 }) => {
-  if (active && payload && payload.length) {
+  if (active && payload?.length) {
     return (
       <div className="bg-gray-900 text-white p-3 rounded-lg shadow-lg border-none">
         <p className="text-sm font-medium mb-2">{label}</p>

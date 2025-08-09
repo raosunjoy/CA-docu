@@ -76,7 +76,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = ({
   }
 
   const getHighlightedContent = (field: string) => {
-    if (result.highlights && result.highlights[field]) {
+    if (result.highlights?.[field]) {
       return result.highlights[field].join(' ... ')
     }
     return field === 'title' ? result.title : result.content
@@ -84,7 +84,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = ({
 
   const truncateContent = (content: string, maxLength: number = 200) => {
     if (content.length <= maxLength) return content
-    return content.substring(0, maxLength) + '...'
+    return `${content.substring(0, maxLength)  }...`
   }
 
   return (

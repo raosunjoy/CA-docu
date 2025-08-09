@@ -125,7 +125,7 @@ async function isDescendant(ancestorId: string, descendantId: string): Promise<b
     select: { parentId: true }
   })
 
-  if (!descendant || !descendant.parentId) {
+  if (!descendant?.parentId) {
     return false
   }
 

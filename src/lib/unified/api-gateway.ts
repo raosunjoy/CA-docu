@@ -323,7 +323,7 @@ export class UnifiedAPIGateway {
     error?: string
   }> {
     const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return {
         success: false,
         error: 'Missing or invalid authorization header'

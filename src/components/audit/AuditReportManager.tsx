@@ -251,7 +251,7 @@ export function AuditReportManager({ className = '' }: AuditReportManagerProps) 
     if (!bytes) return 'N/A'
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
+    return `${Math.round(bytes / Math.pow(1024, i) * 100) / 100  } ${  sizes[i]}`
   }
 
   return (

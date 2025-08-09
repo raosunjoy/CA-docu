@@ -97,7 +97,7 @@ export function MobileTaskForm({
       const transcript = event.results[0][0].transcript
       setFormData(prev => ({
         ...prev,
-        description: (prev.description || '') + ' ' + transcript
+        description: `${prev.description || ''  } ${  transcript}`
       }))
     }
 

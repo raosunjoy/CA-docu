@@ -195,7 +195,7 @@ async function generateTaskSuggestion(emailContent: EmailContent): Promise<TaskS
   const hasAttachments = attachments.length > 0
   
   // Initialize suggestion
-  let suggestion: TaskSuggestion = {
+  const suggestion: TaskSuggestion = {
     title: subject || 'Task from email',
     description: '',
     priority: 'MEDIUM',
@@ -317,7 +317,7 @@ function generateTitle(subject: string | undefined, analysis: ContentAnalysis): 
     title = `Respond to: ${title}`
   }
   
-  return title.length > 100 ? title.substring(0, 97) + '...' : title
+  return title.length > 100 ? `${title.substring(0, 97)  }...` : title
 }
 
 function determinePriority(text: string, analysis: ContentAnalysis): 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' {
@@ -374,7 +374,7 @@ function generateDescription(body: string | undefined, analysis: ContentAnalysis
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim()
   
-  let description = cleanBody.length > 500 ? cleanBody.substring(0, 497) + '...' : cleanBody
+  let description = cleanBody.length > 500 ? `${cleanBody.substring(0, 497)  }...` : cleanBody
   
   // Add context based on analysis
   const context: string[] = []

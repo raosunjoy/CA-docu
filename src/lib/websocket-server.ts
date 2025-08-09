@@ -183,7 +183,7 @@ class WebSocketServer {
             }
           })
 
-          if (!user || !user.isActive) {
+          if (!user?.isActive) {
             socket.emit('authentication_error', 'User not found or inactive')
             return
           }
@@ -435,7 +435,7 @@ class WebSocketServer {
     socket.on('typing_start', (data: TypingData) => {
       if (!socket.user) return
 
-      this.handleStartTyping(data.channelId, socket.user.id, socket.user.firstName + ' ' + socket.user.lastName)
+      this.handleStartTyping(data.channelId, socket.user.id, `${socket.user.firstName  } ${  socket.user.lastName}`)
     })
 
     socket.on('typing_stop', (data: TypingData) => {
@@ -501,7 +501,7 @@ class WebSocketServer {
 
   private handleStopTyping(channelId: string, userId: string) {
     const typingInChannel = this.typingUsers.get(channelId)
-    if (typingInChannel && typingInChannel.has(userId)) {
+    if (typingInChannel?.has(userId)) {
       typingInChannel.delete(userId)
       
       // Broadcast stop typing to channel

@@ -488,10 +488,10 @@ class TagAuditService {
           if (fieldValue === condition.value) return true
           break
         case 'contains':
-          if (!fieldValue || !fieldValue.includes(condition.value)) return true
+          if (!fieldValue?.includes(condition.value)) return true
           break
         case 'not_contains':
-          if (fieldValue && fieldValue.includes(condition.value)) return true
+          if (fieldValue?.includes(condition.value)) return true
           break
         case 'exists':
           if (!fieldValue) return true

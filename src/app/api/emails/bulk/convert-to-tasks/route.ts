@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
         // Create task data
         const taskData: TaskCreationData = {
-          title: title.length > 200 ? title.substring(0, 197) + '...' : title,
+          title: title.length > 200 ? `${title.substring(0, 197)  }...` : title,
           description: generateTaskDescription(email),
           status: 'TODO',
           priority: defaultPriority,

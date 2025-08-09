@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken'
 // Helper function to verify client token
 async function verifyClientToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     throw new Error('No token provided')
   }
 

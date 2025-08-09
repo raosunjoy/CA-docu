@@ -590,7 +590,7 @@ export class SessionSecurityService {
     total: number
   }> {
     // Filter events based on criteria
-    let filteredEvents = this.securityEvents.filter(event => {
+    const filteredEvents = this.securityEvents.filter(event => {
       if (event.organizationId !== organizationId) return false
       if (filters.userId && event.userId !== filters.userId) return false
       if (filters.deviceId && event.deviceId !== filters.deviceId) return false
@@ -714,7 +714,7 @@ export class SessionSecurityService {
   }
 
   private async checkGeoBlocking(location: any, policy: SecurityPolicy): Promise<boolean> {
-    if (!location || !location.country) return false
+    if (!location?.country) return false
 
     // Check if country is explicitly blocked
     if (policy.blockedCountries.includes(location.country)) {

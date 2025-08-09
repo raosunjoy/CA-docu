@@ -233,7 +233,7 @@ export class EmailService {
       where: { id: accountId }
     })
 
-    if (!account || !account.refreshToken) {
+    if (!account?.refreshToken) {
       throw new Error('Account or refresh token not found')
     }
 

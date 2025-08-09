@@ -84,8 +84,8 @@ export function MobileTimeTracker({
         userId: 'user1',
         organizationId: 'org1',
         description: 'Working on task implementation',
-        startTime: new Date(selectedDate + 'T09:00:00'),
-        endTime: new Date(selectedDate + 'T11:30:00'),
+        startTime: new Date(`${selectedDate  }T09:00:00`),
+        endTime: new Date(`${selectedDate  }T11:30:00`),
         duration: 150, // 2.5 hours in minutes
         billable: true,
         createdAt: new Date(),

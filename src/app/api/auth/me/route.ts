@@ -7,7 +7,7 @@ import prisma from '@/lib/prisma'
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'Missing or invalid authorization header' }
