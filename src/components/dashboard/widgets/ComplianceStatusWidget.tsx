@@ -73,28 +73,6 @@ export const ComplianceStatusWidget: React.FC<ComplianceStatusWidgetProps> = ({
         }
 
         setData(transformedData)
-          overallScore: 87.5,
-          monthlyTrend: [
-            { name: 'Jan', score: 85, filings: 12 },
-            { name: 'Feb', score: 88, filings: 15 },
-            { name: 'Mar', score: 82, filings: 18 },
-            { name: 'Apr', score: 90, filings: 14 },
-            { name: 'May', score: 87, filings: 16 },
-            { name: 'Jun', score: 89, filings: 13 }
-          ],
-          complianceByType: [
-            { name: 'GST Returns', completed: 45, pending: 8, overdue: 2 },
-            { name: 'Income Tax', completed: 32, pending: 5, overdue: 1 },
-            { name: 'TDS Returns', completed: 28, pending: 4, overdue: 0 },
-            { name: 'Audit Reports', completed: 15, pending: 3, overdue: 1 }
-          ],
-          upcomingDeadlines: [
-            { name: 'GST Return - March', dueDate: '2024-04-20', status: 'pending' },
-            { name: 'TDS Return - Q4', dueDate: '2024-04-30', status: 'at_risk' },
-            { name: 'Annual Filing - ABC Ltd', dueDate: '2024-04-15', status: 'overdue' }
-          ],
-          riskLevel: 'MEDIUM'
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load compliance data')
       } finally {

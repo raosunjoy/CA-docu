@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from 'react'
 import { ResponsiveContainer } from 'recharts'
 import { MoreHorizontal, Download, Maximize2, Filter } from 'lucide-react'

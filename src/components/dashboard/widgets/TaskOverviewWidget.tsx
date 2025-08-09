@@ -69,24 +69,6 @@ export const TaskOverviewWidget: React.FC<TaskOverviewWidgetProps> = ({
         }
 
         setData(transformedData)
-          tasksByStatus: [
-            { name: 'Completed', value: 45 },
-            { name: 'In Progress', value: 23 },
-            { name: 'Pending', value: 18 },
-            { name: 'Overdue', value: 8 },
-            { name: 'On Hold', value: 6 }
-          ],
-          tasksByPriority: [
-            { name: 'High', value: 15 },
-            { name: 'Medium', value: 35 },
-            { name: 'Low', value: 25 },
-            { name: 'Critical', value: 8 }
-          ],
-          completionRate: 78.5,
-          totalTasks: 156,
-          overdueTasks: 12,
-          upcomingDeadlines: 8
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load task overview')
       } finally {

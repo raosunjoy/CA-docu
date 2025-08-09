@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from 'react'
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { BaseChart, chartTheme, CustomTooltip } from './BaseChart'

@@ -1,6 +1,13 @@
 import { Button } from '@/components/common/Button'
 import { Badge } from '@/components/atoms/Badge'
 import { Card } from '@/components/common/Card'
+import { SystemHealthWidget } from '@/components/admin/SystemHealthWidget'
+import { MonitoringAlertsNotification } from '@/components/admin/MonitoringAlertsNotification'
+import { SystemStatusOverview } from '@/components/admin/SystemStatusOverview'
+import { MonitoringDataExport } from '@/components/admin/MonitoringDataExport'
+import { DeploymentTracker } from '@/components/admin/DeploymentTracker'
+import { RollbackManagementDashboard } from '@/components/admin/RollbackManagementDashboard'
+import { useSystemHealth } from '@/hooks/useSystemHealth'
 
 interface SystemStats {
   totalUsers: number
@@ -50,89 +57,141 @@ export const AccessDenied = () => (
   </div>
 )
 
-// System stats dashboard
-export const SystemStatsDashboard = ({ stats }: { stats: SystemStats }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">Total Users</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
-        </div>
-        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">👥</span>
-        </div>
-      </div>
-    </Card>
-
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">Active Users</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.activeUsers}</p>
-        </div>
-        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">✅</span>
-        </div>
-      </div>
-    </Card>
-
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">Storage Used</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.storageUsed}</p>
-        </div>
-        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">💾</span>
-        </div>
-      </div>
-    </Card>
-
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">Backup Status</p>
-          <div className="flex items-center space-x-2 mt-1">
-            <Badge 
-              variant={stats.backupStatus === 'healthy' ? 'success' : 'warning'} 
-              size="sm"
-            >
-              {stats.backupStatus}
-            </Badge>
+// System stats dashboard with comprehensive monitoring
+export const SystemStatsDashboard = ({ stats }: { stats: SystemStats }) => {
+  const { healthData } = useSystemHealth(30000)
+  
+  return (
+    <div className="space-y-6 mb-8">
+      {/* System Health Widget - Primary monitoring */}
+      <SystemHealthWidget 
+        refreshInterval={30000}
+        showDetails={true}
+        onAlertClick={(alert) => {
+          console.log('Alert clicked:', alert)
+          // In a real implementation, this would open an alert details modal
+        }}
+      />
+      
+      {/* Monitoring Alerts Notification */}
+      <MonitoringAlertsNotification 
+        alerts={healthData.alerts}
+        onAlertAcknowledge={(alertId) => {
+          console.log('Alert acknowledged:', alertId)
+          // In a real implementation, this would call the API to acknowledge the alert
+        }}
+        onAlertDismiss={(alertId) => {
+          console.log('Alert dismissed:', alertId)
+          // In a real implementation, this would call the API to dismiss the alert
+        }}
+        onAlertAction={(alertId, action) => {
+          console.log('Alert action:', alertId, action)
+          // In a real implementation, this would execute the alert action
+        }}
+      />
+      
+      {/* System Status Overview */}
+      <SystemStatusOverview 
+        refreshInterval={30000}
+        onServiceClick={(service) => {
+          console.log('Service clicked:', service)
+          // In a real implementation, this would open service details modal
+        }}
+      />
+      
+      {/* Additional System Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Users</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">👥</span>
+            </div>
           </div>
-        </div>
-        <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">🔄</span>
-        </div>
-      </div>
-    </Card>
+        </Card>
 
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">Security Score</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.securityScore}%</p>
-        </div>
-        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">🔒</span>
-        </div>
-      </div>
-    </Card>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Storage Used</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.storageUsed}</p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">💾</span>
+            </div>
+          </div>
+        </Card>
 
-    <Card className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">Last Backup</p>
-          <p className="text-lg font-medium text-gray-900">{stats.lastBackup}</p>
-        </div>
-        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-          <span className="text-2xl">⏰</span>
-        </div>
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Backup Status</p>
+              <div className="flex items-center space-x-2 mt-1">
+                <Badge 
+                  variant={stats.backupStatus === 'healthy' ? 'success' : 'warning'} 
+                  size="sm"
+                >
+                  {stats.backupStatus}
+                </Badge>
+              </div>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">🔄</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Security Score</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.securityScore}%</p>
+            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">🔒</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Last Backup</p>
+              <p className="text-lg font-medium text-gray-900">{stats.lastBackup}</p>
+            </div>
+            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">⏰</span>
+            </div>
+          </div>
+        </Card>
       </div>
-    </Card>
-  </div>
-)
+      
+      {/* Deployment Tracking */}
+      <DeploymentTracker 
+        refreshInterval={30000}
+        showHistory={true}
+        onRollbackRequest={(deploymentId) => {
+          console.log('Rollback requested for:', deploymentId)
+          // In a real implementation, this would open the rollback confirmation modal
+        }}
+      />
+      
+      {/* Rollback Management */}
+      <RollbackManagementDashboard />
+      
+      {/* Monitoring Data Export */}
+      <MonitoringDataExport 
+        onExport={async (config) => {
+          console.log('Export requested:', config)
+          // In a real implementation, this would call the export API
+        }}
+      />
+    </div>
+  )
+}
 
 // Admin sections grid
 export const AdminSectionsGrid = ({ 

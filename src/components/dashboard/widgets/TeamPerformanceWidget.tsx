@@ -80,30 +80,6 @@ export const TeamPerformanceWidget: React.FC<TeamPerformanceWidgetProps> = ({
         }
 
         setData(transformedData)
-          overallProductivity: 82.5,
-          utilizationRate: 78.3,
-          teamMembers: [
-            { name: 'Rajesh Kumar', productivity: 88, utilization: 85, tasksCompleted: 24, hoursLogged: 168 },
-            { name: 'Priya Sharma', productivity: 92, utilization: 82, tasksCompleted: 28, hoursLogged: 164 },
-            { name: 'Amit Patel', productivity: 75, utilization: 70, tasksCompleted: 18, hoursLogged: 140 },
-            { name: 'Sneha Gupta', productivity: 85, utilization: 88, tasksCompleted: 22, hoursLogged: 176 },
-            { name: 'Vikram Singh', productivity: 79, utilization: 75, tasksCompleted: 20, hoursLogged: 150 }
-          ],
-          productivityTrend: [
-            { name: 'Jan', productivity: 78, utilization: 72 },
-            { name: 'Feb', productivity: 82, utilization: 75 },
-            { name: 'Mar', productivity: 85, utilization: 78 },
-            { name: 'Apr', productivity: 83, utilization: 80 },
-            { name: 'May', productivity: 87, utilization: 82 },
-            { name: 'Jun', productivity: 82, utilization: 78 }
-          ],
-          departmentPerformance: [
-            { name: 'Tax', avgProductivity: 85, teamSize: 8 },
-            { name: 'Audit', avgProductivity: 82, teamSize: 6 },
-            { name: 'Compliance', avgProductivity: 78, teamSize: 4 },
-            { name: 'Advisory', avgProductivity: 88, teamSize: 5 }
-          ]
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load team performance data')
       } finally {

@@ -1,10 +1,13 @@
-// Sync Conflict Resolution Component
+// Enhanced Sync Conflict Resolution Component
 'use client'
 
 import React, { useState, useEffect } from 'react'
 import { useSync } from '@/hooks/useSync'
-import { Button } from '@/components/common/Button'
-import { Card } from '@/components/common/Card'
+import { Button } from '@/components/atoms/Button'
+import { Card, CardContent } from '@/components/atoms/Card'
+import { Badge } from '@/components/atoms/Badge'
+import { Modal } from '@/components/atoms/Modal'
+import { cn } from '@/lib/utils'
 
 interface ConflictData {
   id: string
@@ -13,21 +16,71 @@ interface ConflictData {
   resourceId: string
   localData: any
   remoteData: any
+  baseData?: any // For three-way merge
   resolution: any
-  status: string
+  status: 'pending' | 'resolved' | 'ignored'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  conflictType: 'data' | 'structure' | 'permission' | 'version'
   createdAt: string
+  resolvedAt?: string
+  resolvedBy?: string
+  autoResolvable: boolean
+  suggestions: ConflictSuggestion[]
+}
+
+interface ConflictSuggestion {
+  type: 'merge' | 'local' | 'remote' | 'custom'
+  confidence: number
+  description: string
+  preview: any
+}
+
+interface ConflictTemplate {
+  id: string
+  name: string
+  description: string
+  resourceType: string
+  conflictType: string
+  resolution: 'local' | 'remote' | 'merge' | 'custom'
+  conditions: any[]
+  customLogic?: string
+}
+
+interface ConflictHistoryEntry {
+  id: string
+  conflictId: string
+  action: 'resolved' | 'ignored' | 'escalated'
+  resolution: string
+  timestamp: Date
+  user: string
+  notes?: string
 }
 
 interface SyncConflictResolverProps {
   isOpen: boolean
   onClose: () => void
+  enableBatchResolution?: boolean
+  showTemplates?: boolean
+  showHistory?: boolean
 }
 
-export function SyncConflictResolver({ isOpen, onClose }: SyncConflictResolverProps) {
+export function SyncConflictResolver({ 
+  isOpen, 
+  onClose, 
+  enableBatchResolution = true,
+  showTemplates = true,
+  showHistory = true
+}: SyncConflictResolverProps) {
   const { getConflicts, resolveConflict } = useSync()
   const [conflicts, setConflicts] = useState<ConflictData[]>([])
   const [selectedConflict, setSelectedConflict] = useState<ConflictData | null>(null)
+  const [selectedConflicts, setSelectedConflicts] = useState<string[]>([])
+  const [templates, setTemplates] = useState<ConflictTemplate[]>([])
+  const [conflictHistory, setConflictHistory] = useState<ConflictHistoryEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'conflicts' | 'templates' | 'history'>('conflicts')
+  const [showThreeWayMerge, setShowThreeWayMerge] = useState(false)
+  const [customResolution, setCustomResolution] = useState<any>(null)
 
   useEffect(() => {
     if (isOpen) {
