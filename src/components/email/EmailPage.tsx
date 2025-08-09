@@ -6,6 +6,7 @@ import { EmailComposer } from './EmailComposer'
 import { EmailViewer } from './EmailViewer'
 import { EmailFolderTree } from './EmailFolderTree'
 import { AIEmailCategorizer } from '@/components/ai/AIEmailCategorizer'
+import { EnhancedEmailWorkflow } from './EnhancedEmailWorkflow'
 
 interface EmailPageProps {
   userId: string
@@ -21,6 +22,8 @@ export const EmailPage: React.FC<EmailPageProps> = ({
   const [selectedFolder, setSelectedFolder] = useState('inbox')
   const [emails, setEmails] = useState<any[]>([])
   const [showAICategorizer, setShowAICategorizer] = useState(true)
+  const [showWorkflows, setShowWorkflows] = useState(false)
+  const [activeView, setActiveView] = useState<'inbox' | 'workflows'>('inbox')
 
   const handleEmailCategorized = (emailId: string, categories: any[], suggestions: any) => {
     // Update email with AI categorization results
@@ -61,6 +64,19 @@ export const EmailPage: React.FC<EmailPageProps> = ({
     setEmails(loadedEmails)
   }
 
+  const handleWorkflowExecuted = (emailId: string, actions: any[]) => {
+    // Update email with workflow execution results
+    setEmails(prev => prev.map(email => 
+      email.id === emailId 
+        ? { 
+            ...email, 
+            workflowActions: [...(email.workflowActions || []), ...actions],
+            labels: [...(email.labels || []), ...actions.filter(a => a.type === 'assign_label').map(a => a.value)]
+          }
+        : email
+    ))
+  }
+
   return (
     <div className={`email-page h-full flex flex-col ${className}`}>
       {/* AI Categorizer Panel */}
@@ -85,16 +101,29 @@ export const EmailPage: React.FC<EmailPageProps> = ({
             >
               Compose
             </button>
-            <button
-              onClick={() => setShowAICategorizer(!showAICategorizer)}
-              className={`w-full px-4 py-2 rounded-lg transition-colors text-sm ${
-                showAICategorizer 
-                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              🤖 AI Categorizer
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowAICategorizer(!showAICategorizer)}
+                className={`w-full px-4 py-2 rounded-lg transition-colors text-sm ${
+                  showAICategorizer 
+                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🤖 AI Categorizer
+              </button>
+              
+              <button
+                onClick={() => setActiveView(activeView === 'workflows' ? 'inbox' : 'workflows')}
+                className={`w-full px-4 py-2 rounded-lg transition-colors text-sm ${
+                  activeView === 'workflows'
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                ⚡ Workflows
+              </button>
+            </div>
           </div>
           <EmailFolderTree
             userId={userId}
@@ -103,20 +132,40 @@ export const EmailPage: React.FC<EmailPageProps> = ({
           />
         </div>
 
-        {/* Middle Panel - Email List */}
+        {/* Middle Panel - Email List or Workflows */}
         <div className="w-96 border-r border-gray-200 bg-white">
-          <EmailInbox
-            userId={userId}
-            onEmailSelect={setSelectedEmailId}
-            selectedEmailId={selectedEmailId}
-            folder={selectedFolder}
-            onEmailsLoaded={handleEmailsLoaded}
-          />
+          {activeView === 'inbox' ? (
+            <EmailInbox
+              userId={userId}
+              onEmailSelect={setSelectedEmailId}
+              selectedEmailId={selectedEmailId}
+              folder={selectedFolder}
+              onEmailsLoaded={handleEmailsLoaded}
+            />
+          ) : (
+            <div className="p-4">
+              <h3 className="font-medium text-gray-900 mb-4">Workflow Management</h3>
+              <p className="text-sm text-gray-600">
+                Configure automated workflows in the main panel →
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Right Panel - Email Viewer or Composer */}
+        {/* Right Panel - Email Viewer, Composer, or Workflows */}
         <div className="flex-1 bg-gray-50">
           {(() => {
+            if (activeView === 'workflows') {
+              return (
+                <div className="p-6">
+                  <EnhancedEmailWorkflow
+                    userId={userId}
+                    onWorkflowExecuted={handleWorkflowExecuted}
+                  />
+                </div>
+              )
+            }
+            
             if (showComposer) {
               return (
                 <EmailComposer

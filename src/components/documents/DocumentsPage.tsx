@@ -5,6 +5,7 @@ import { Button } from '@/components/atoms/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/atoms/Card'
 import { Badge } from '@/components/atoms/Badge'
 import { Modal } from '@/components/atoms/Modal'
+import { AIDocumentUpload } from './AIDocumentUpload'
 
 interface Document {
   id: string
@@ -48,10 +49,23 @@ const mockDocuments: Document[] = [
 ]
 
 export const DocumentsPage: React.FC = () => {
-  const [documents] = useState<Document[]>(mockDocuments)
+  const [documents, setDocuments] = useState<Document[]>(mockDocuments)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+
+  const handleUploadComplete = (newDocuments: any[]) => {
+    const formattedDocs: Document[] = newDocuments.map(doc => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: doc.name,
+      type: doc.type,
+      size: '2.1 MB', // Mock size
+      uploadedBy: 'Current User',
+      uploadedAt: new Date().toISOString().split('T')[0],
+      tags: doc.tags
+    }))
+    setDocuments(prev => [...formattedDocs, ...prev])
+  }
 
   const getFileIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -167,7 +181,7 @@ export const DocumentsPage: React.FC = () => {
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          Upload Documents
+          🤖 AI Upload
         </Button>
       </div>
 
@@ -219,30 +233,12 @@ export const DocumentsPage: React.FC = () => {
       {/* Documents */}
       {viewMode === 'grid' ? renderGridView() : renderListView()}
 
-      {/* Upload Modal */}
-      <Modal
+      {/* AI Upload Modal */}
+      <AIDocumentUpload
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
-        title="Upload Documents"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p className="text-gray-600 mb-2">Drag and drop files here, or click to browse</p>
-            <Button variant="outline">Choose Files</Button>
-          </div>
-          
-          <div className="flex space-x-2">
-            <Button className="flex-1">Upload</Button>
-            <Button variant="outline" onClick={() => setIsUploadModalOpen(false)} className="flex-1">
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onUploadComplete={handleUploadComplete}
+      />
 
       {/* Document Detail Modal */}
       {selectedDocument && (

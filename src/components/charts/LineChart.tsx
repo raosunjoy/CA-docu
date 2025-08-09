@@ -14,6 +14,9 @@ interface LineChartProps {
   showGrid?: boolean
   showLegend?: boolean
   className?: string
+  onPointClick?: (data: any, index: number) => void
+  interactive?: boolean
+  showActions?: boolean
 }
 
 export const LineChart: React.FC<LineChartProps> = ({
@@ -27,8 +30,29 @@ export const LineChart: React.FC<LineChartProps> = ({
   valueType = 'number',
   showGrid = true,
   showLegend = true,
-  className = ''
+  className = '',
+  onPointClick,
+  interactive = true,
+  showActions = true
 }) => {
+  const handlePointClick = (data: any, index: number) => {
+    if (interactive && onPointClick) {
+      onPointClick(data, index)
+    }
+  }
+
+  const handleExport = () => {
+    console.log('Exporting line chart data:', data)
+  }
+
+  const handleFilter = () => {
+    console.log('Opening filter dialog')
+  }
+
+  const handleFullscreen = () => {
+    console.log('Opening in fullscreen')
+  }
+
   return (
     <BaseChart
       title={title}
@@ -36,8 +60,21 @@ export const LineChart: React.FC<LineChartProps> = ({
       loading={loading}
       error={error}
       className={className}
+      onExport={handleExport}
+      onFilter={handleFilter}
+      onFullscreen={handleFullscreen}
+      showActions={showActions}
     >
-      <RechartsLineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+      <RechartsLineChart 
+        data={data} 
+        margin={{ 
+          top: 5, 
+          right: window.innerWidth < 768 ? 10 : 30, 
+          left: window.innerWidth < 768 ? 10 : 20, 
+          bottom: 5 
+        }}
+        onClick={handlePointClick}
+      >
         {showGrid && (
           <CartesianGrid 
             strokeDasharray="3 3" 
@@ -48,13 +85,17 @@ export const LineChart: React.FC<LineChartProps> = ({
         <XAxis 
           dataKey={xKey}
           stroke={chartTheme.axis.stroke}
-          fontSize={chartTheme.axis.fontSize}
+          fontSize={window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize}
           fontFamily={chartTheme.axis.fontFamily}
+          angle={window.innerWidth < 768 ? -45 : 0}
+          textAnchor={window.innerWidth < 768 ? 'end' : 'middle'}
+          height={window.innerWidth < 768 ? 60 : 30}
         />
         <YAxis 
           stroke={chartTheme.axis.stroke}
-          fontSize={chartTheme.axis.fontSize}
+          fontSize={window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize}
           fontFamily={chartTheme.axis.fontFamily}
+          width={window.innerWidth < 768 ? 40 : 60}
         />
         <Tooltip 
           content={<CustomTooltip valueType={valueType} />}
@@ -62,7 +103,7 @@ export const LineChart: React.FC<LineChartProps> = ({
         {showLegend && (
           <Legend 
             wrapperStyle={{
-              fontSize: chartTheme.axis.fontSize,
+              fontSize: window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize,
               fontFamily: chartTheme.axis.fontFamily
             }}
           />
@@ -74,8 +115,9 @@ export const LineChart: React.FC<LineChartProps> = ({
             dataKey={key}
             stroke={chartTheme.palette[index % chartTheme.palette.length]}
             strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
+            dot={{ r: 4, strokeWidth: 2 }}
+            activeDot={{ r: 6, strokeWidth: 2 }}
+            cursor={interactive ? 'pointer' : 'default'}
           />
         ))}
       </RechartsLineChart>

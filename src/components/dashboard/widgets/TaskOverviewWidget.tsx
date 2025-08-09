@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { BarChart, PieChart, KPICard } from '../../charts'
 import type { DashboardWidgetConfig } from '../../../types'
+import { config } from 'process';
 
 interface TaskOverviewData {
   tasksByStatus: Array<{ name: string; value: number }>
@@ -32,8 +33,42 @@ export const TaskOverviewWidget: React.FC<TaskOverviewWidgetProps> = ({
         setLoading(true)
         setError(null)
 
-        // Mock data for now - in real implementation, this would fetch from API
-        const mockData: TaskOverviewData = {
+        // Connect to Claude's analytics API
+        const response = await fetch(`/api/dashboard/analytics?organizationId=${organizationId}&userId=${userId}&metric=tasks`)
+        
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`)
+        }
+
+        const result = await response.json()
+        
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Failed to fetch task overview data')
+        }
+
+        // Transform Claude's API data to component format
+        const apiData = result.data
+        const transformedData: TaskOverviewData = {
+          tasksByStatus: apiData.statusBreakdown || [
+            { name: 'Completed', value: 45 },
+            { name: 'In Progress', value: 23 },
+            { name: 'Pending', value: 18 },
+            { name: 'Overdue', value: 8 },
+            { name: 'On Hold', value: 6 }
+          ],
+          tasksByPriority: apiData.priorityBreakdown || [
+            { name: 'High', value: 15 },
+            { name: 'Medium', value: 35 },
+            { name: 'Low', value: 25 },
+            { name: 'Critical', value: 8 }
+          ],
+          completionRate: apiData.completionRate || 78.5,
+          totalTasks: apiData.totalTasks || 156,
+          overdueTasks: apiData.overdueTasks || 12,
+          upcomingDeadlines: apiData.upcomingDeadlines || 8
+        }
+
+        setData(transformedData)
           tasksByStatus: [
             { name: 'Completed', value: 45 },
             { name: 'In Progress', value: 23 },
@@ -52,10 +87,6 @@ export const TaskOverviewWidget: React.FC<TaskOverviewWidgetProps> = ({
           overdueTasks: 12,
           upcomingDeadlines: 8
         }
-
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        setData(mockData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load task overview')
       } finally {

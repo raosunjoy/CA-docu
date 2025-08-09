@@ -1,9 +1,9 @@
 export { BaseChart, chartTheme, formatChartValue, CustomTooltip } from './BaseChart'
 export { LineChart } from './LineChart'
 export { BarChart } from './BarChart'
-export { PieChart, DonutChart } from './PieChart'
+export { PieChart } from './PieChart'
+export { DonutChart } from './DonutChart'
 export { KPICard } from './KPICard'
-export { AIEnhancedChart } from './AIEnhancedChart'
 
 // Chart utility functions
 export const generateMockData = (count: number = 12) => {

@@ -1,25 +1,20 @@
 import React from 'react'
-import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { BaseChart, chartTheme, formatChartValue } from './BaseChart'
-
-interface PieChartData {
-  name: string
-  value: number
-  [key: string]: any
-}
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+import { BaseChart, chartTheme, CustomTooltip } from './BaseChart'
 
 interface PieChartProps {
-  data: PieChartData[]
+  data: Array<{ name: string; value: number }>
   title?: string
   height?: number
   loading?: boolean
   error?: string | null
   valueType?: 'currency' | 'percentage' | 'number'
-  showLegend?: boolean
   showLabels?: boolean
-  innerRadius?: number
-  outerRadius?: number
+  showLegend?: boolean
   className?: string
+  onSliceClick?: (data: any, index: number) => void
+  interactive?: boolean
+  showActions?: boolean
 }
 
 export const PieChart: React.FC<PieChartProps> = ({
@@ -29,50 +24,34 @@ export const PieChart: React.FC<PieChartProps> = ({
   loading = false,
   error = null,
   valueType = 'number',
+  showLabels = false,
   showLegend = true,
-  showLabels = true,
-  innerRadius = 0,
-  outerRadius = 80,
-  className = ''
+  className = '',
+  onSliceClick,
+  interactive = true,
+  showActions = true
 }) => {
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-    if (!showLabels) return null
-    
-    const RADIAN = Math.PI / 180
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
-    const x = cx + radius * Math.cos(-midAngle * RADIAN)
-    const y = cy + radius * Math.sin(-midAngle * RADIAN)
-
-    return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor={x > cx ? 'start' : 'end'} 
-        dominantBaseline="central"
-        fontSize={12}
-        fontWeight="bold"
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    )
+  const handleSliceClick = (data: any, index: number) => {
+    if (interactive && onSliceClick) {
+      onSliceClick(data, index)
+    }
   }
 
-  const CustomPieTooltip = ({ active, payload }: any) => {
-    if (active && payload?.length) {
-      const data = payload[0].payload
-      return (
-        <div className="bg-gray-900 text-white p-3 rounded-lg shadow-lg border-none">
-          <p className="text-sm font-medium mb-1">{data.name}</p>
-          <p className="text-sm">
-            <span className="font-semibold">
-              {formatChartValue(data.value, valueType)}
-            </span>
-          </p>
-        </div>
-      )
-    }
-    return null
+  const handleExport = () => {
+    console.log('Exporting pie chart data:', data)
+  }
+
+  const handleFilter = () => {
+    console.log('Opening filter dialog')
+  }
+
+  const handleFullscreen = () => {
+    console.log('Opening in fullscreen')
+  }
+
+  const renderLabel = (entry: any) => {
+    if (!showLabels) return null
+    return `${entry.name}: ${entry.value}`
   }
 
   return (
@@ -82,6 +61,10 @@ export const PieChart: React.FC<PieChartProps> = ({
       loading={loading}
       error={error}
       className={className}
+      onExport={handleExport}
+      onFilter={handleFilter}
+      onFullscreen={handleFullscreen}
+      showActions={showActions}
     >
       <RechartsPieChart>
         <Pie
@@ -89,11 +72,12 @@ export const PieChart: React.FC<PieChartProps> = ({
           cx="50%"
           cy="50%"
           labelLine={false}
-          label={renderCustomLabel}
-          outerRadius={outerRadius}
-          innerRadius={innerRadius}
+          label={renderLabel}
+          outerRadius={Math.min(height * 0.35, 120)}
           fill="#8884d8"
           dataKey="value"
+          onClick={handleSliceClick}
+          cursor={interactive ? 'pointer' : 'default'}
         >
           {data.map((entry, index) => (
             <Cell 
@@ -102,11 +86,13 @@ export const PieChart: React.FC<PieChartProps> = ({
             />
           ))}
         </Pie>
-        <Tooltip content={<CustomPieTooltip />} />
+        <Tooltip 
+          content={<CustomTooltip valueType={valueType} />}
+        />
         {showLegend && (
           <Legend 
             wrapperStyle={{
-              fontSize: chartTheme.axis.fontSize,
+              fontSize: window.innerWidth < 768 ? 10 : chartTheme.axis.fontSize,
               fontFamily: chartTheme.axis.fontFamily
             }}
           />
@@ -114,9 +100,4 @@ export const PieChart: React.FC<PieChartProps> = ({
       </RechartsPieChart>
     </BaseChart>
   )
-}
-
-// Donut chart is just a pie chart with inner radius
-export const DonutChart: React.FC<PieChartProps> = (props) => {
-  return <PieChart {...props} innerRadius={40} />
 }

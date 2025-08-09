@@ -2,7 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { emailSyncService } from '@/lib/email-sync-service'
 import { validateWebhookSignature, validateGmailWebhookSignature, validateOutlookWebhookSignature } from '@/lib/webhook-security'
-import { EmailProvider } from '../../../generated/prisma'
+// import { EmailProvider } from '../../../../../generated/prisma'
+
+// Temporary enum for webhook handling
+enum EmailProvider {
+  GMAIL = 'GMAIL',
+  OUTLOOK = 'OUTLOOK',
+  EXCHANGE = 'EXCHANGE'
+}
 
 export async function POST(request: NextRequest) {
   try {

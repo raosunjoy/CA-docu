@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ResponsiveContainer } from 'recharts'
+import { MoreHorizontal, Download, Maximize2, Filter } from 'lucide-react'
 
 interface BaseChartProps {
   children: React.ReactNode
@@ -8,6 +9,10 @@ interface BaseChartProps {
   error?: string | null
   title?: string
   className?: string
+  onExport?: () => void
+  onFullscreen?: () => void
+  onFilter?: () => void
+  showActions?: boolean
 }
 
 export const BaseChart: React.FC<BaseChartProps> = ({
@@ -16,8 +21,13 @@ export const BaseChart: React.FC<BaseChartProps> = ({
   loading = false,
   error = null,
   title,
-  className = ''
+  className = '',
+  onExport,
+  onFullscreen,
+  onFilter,
+  showActions = true
 }) => {
+  const [showMenu, setShowMenu] = useState(false)
   if (loading) {
     return (
       <div className={`chart-container ${className}`}>
@@ -68,8 +78,60 @@ export const BaseChart: React.FC<BaseChartProps> = ({
   return (
     <div className={`chart-container ${className}`}>
       {title && (
-        <div className="chart-header mb-4">
+        <div className="chart-header mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          {showActions && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <MoreHorizontal className="w-4 h-4 text-gray-500" />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                  <div className="py-1">
+                    {onFilter && (
+                      <button
+                        onClick={() => {
+                          onFilter()
+                          setShowMenu(false)
+                        }}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                      >
+                        <Filter className="w-4 h-4 mr-2" />
+                        Filter Data
+                      </button>
+                    )}
+                    {onExport && (
+                      <button
+                        onClick={() => {
+                          onExport()
+                          setShowMenu(false)
+                        }}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export Chart
+                      </button>
+                    )}
+                    {onFullscreen && (
+                      <button
+                        onClick={() => {
+                          onFullscreen()
+                          setShowMenu(false)
+                        }}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                      >
+                        <Maximize2 className="w-4 h-4 mr-2" />
+                        Fullscreen
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
       <ResponsiveContainer width="100%" height={height}>
