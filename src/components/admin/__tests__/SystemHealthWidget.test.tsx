@@ -35,10 +35,10 @@ describe('SystemHealthWidget', () => {
 
   it('should render system health metrics correctly', async () => {
     render(<SystemHealthWidget />)
-    
+
     expect(screen.getByText('System Health')).toBeInTheDocument()
     expect(screen.getByText('healthy')).toBeInTheDocument()
-    
+
     // Check metrics
     expect(screen.getByText('45%')).toBeInTheDocument() // CPU
     expect(screen.getByText('67%')).toBeInTheDocument() // Memory
@@ -81,7 +81,7 @@ describe('SystemHealthWidget', () => {
     })
 
     render(<SystemHealthWidget />)
-    
+
     expect(screen.getByText('warning')).toBeInTheDocument()
     expect(screen.getByText('Active Alerts')).toBeInTheDocument()
     expect(screen.getByText('Memory usage is 90%')).toBeInTheDocument()
@@ -111,7 +111,7 @@ describe('SystemHealthWidget', () => {
     })
 
     render(<SystemHealthWidget />)
-    
+
     expect(screen.getByText('Failed to load system health data')).toBeInTheDocument()
     expect(screen.getByText('Failed to fetch health data')).toBeInTheDocument()
   })
@@ -140,10 +140,10 @@ describe('SystemHealthWidget', () => {
     })
 
     render(<SystemHealthWidget />)
-    
+
     const refreshButton = screen.getByRole('button')
     fireEvent.click(refreshButton)
-    
+
     expect(mockRefresh).toHaveBeenCalledTimes(1)
   })
 
@@ -180,10 +180,10 @@ describe('SystemHealthWidget', () => {
     })
 
     render(<SystemHealthWidget onAlertClick={mockOnAlertClick} />)
-    
+
     const alertElement = screen.getByText('Test alert message').closest('div')
     fireEvent.click(alertElement!)
-    
+
     expect(mockOnAlertClick).toHaveBeenCalledWith(mockAlert)
   })
 })
